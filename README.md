@@ -62,5 +62,22 @@ src/
 - 공유 TypeScript 타입은 `src/types`, 순수 유틸리티 함수는 `src/utils`에 추가합니다.
 - 사용하지 않는 디렉터리나 빈 추상화는 미리 만들지 않습니다.
 - `src` 내부 모듈은 `@/components/...` 형식의 별칭으로 import합니다.
+- NativeWind를 사용하므로 재사용 UI에는 `className`과 Tailwind utility class를 우선 사용합니다. 화면별 예외적인 스타일이나 동적 스타일은 React Native `StyleSheet`를 사용합니다.
+
+## NativeWind
+
+NativeWind v4와 Tailwind CSS v3가 설정되어 있습니다. 팀원이 새로 의존성을 설치할 때도 `.npmrc`가 Expo SDK 54의 peer dependency 조합을 유지합니다.
+
+```tsx
+<View className="flex-1 items-center justify-center bg-white">
+  <Text className="text-xl font-bold text-gray-900">Fitple</Text>
+</View>
+```
+
+스타일이 반영되지 않으면 Metro 캐시를 비우고 다시 시작합니다.
+
+```powershell
+npm run start:clear
+```
 
 Android package와 iOS bundle identifier는 스토어 배포 준비 단계에서 팀 도메인에 맞춰 설정합니다.
