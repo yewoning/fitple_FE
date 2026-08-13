@@ -15,7 +15,20 @@ node --version
 ```
 
 `v24.x`가 아니라면 Node.js 24 LTS로 전환한 뒤 의존성을 설치합니다.
-프로젝트는 `.npmrc`의 `engine-strict` 설정으로 다른 Node 메이저 버전의 설치를 차단합니다.
+프로젝트는 Node 24 LTS를 권장합니다. 다른 Node 메이저 버전에서도 설치 자체는 진행되지만 npm이 엔진 경고를 표시할 수 있습니다.
+
+Windows에서 Node 24를 새 터미널의 기본값으로 인식하지 못하면 터미널을 완전히 닫았다가 다시 열고 확인합니다. 이 컴퓨터에 설치된 프로젝트용 Node 24를 현재 PowerShell 세션에서 바로 사용하려면 다음을 실행합니다.
+
+```powershell
+$node24 = "$env:LOCALAPPDATA\Programs\fitple-node24\node-v24.18.0-win-x64"
+$env:Path = "$node24;$env:Path"
+node --version
+npm --version
+```
+
+`node --version`이 `v24.x`, `npm --version`이 `11.x`인지 확인한 후 `npm install`을 실행합니다.
+
+Node 25 환경에서 `npm install`을 실행하면 `EBADENGINE` 경고가 보일 수 있지만, 설치는 중단되지 않습니다. 개발 및 배포 환경에서는 호환성과 재현성을 위해 Node 24 LTS를 사용하세요.
 
 ```powershell
 npm install
