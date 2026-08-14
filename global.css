@@ -1,3 +1,23 @@
+:root {
+  --color-gray-6: #484d5a;
+  --color-gray-5: #828797;
+  --color-gray-5-overlay: rgb(0 0 0 / 20%);
+  --color-gray-4: #a8adbe;
+  --color-gray-3: #cccfdb;
+  --color-gray-2: #e1e4ee;
+  --color-gray-1: #f6f8fb;
+  --color-blue-2: #0169ff;
+  --color-blue-1: #0e25d0;
+  --color-yellow-3: #ffcb25;
+  --color-yellow-2: #fffa63;
+  --color-yellow-1: #ffffbe;
+  --color-dark-blue: #3946a6;
+  --color-sky-blue: #4876ee;
+  --color-dark-sky-blue: #c7d7ed;
+  --color-white-dark-sky-blue: #e3eaf4;
+  --color-black: #3f3f3f;
+}
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
