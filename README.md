@@ -2,6 +2,10 @@
 
 React와 Expo로 개발하는 Fitple 모바일 앱입니다. 현재 프로젝트는 Expo SDK 54, TypeScript, Expo Router를 사용합니다.
 
+## 협업 규칙
+
+GitHub Issue 기반 작업 흐름과 PR 규칙은 [CONTRIBUTING.md](./CONTRIBUTING.md)를 확인하세요.
+
 ## 개발 환경
 
 - Node.js 24 LTS
