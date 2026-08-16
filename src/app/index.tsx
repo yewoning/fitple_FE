@@ -1,5 +1,5 @@
-import { HomeScreen } from '@/components/home-screen';
+import { MainScreen } from '@/components/main-screen';
 
 export default function IndexRoute() {
-  return <HomeScreen />;
+  return <MainScreen />;
 }
