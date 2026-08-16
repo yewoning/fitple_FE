@@ -21,7 +21,7 @@ export function PrimaryButton({
     <Pressable
       accessibilityRole="button"
       accessibilityState={{ disabled: unavailable, busy: loading }}
-      className={`h-14 flex-row items-center justify-center gap-2 rounded-full ${
+      className={`h-[55px] flex-row items-center justify-center gap-2 rounded-full shadow-lg shadow-gray-5-overlay ${
         unavailable ? 'bg-gray-3' : 'bg-sky-blue'
       }`}
       disabled={unavailable}
