@@ -1,4 +1,5 @@
-import { Image, Text, View, useWindowDimensions } from 'react-native';
+import { type Href, useRouter } from 'expo-router';
+import { Image, Pressable, Text, View, useWindowDimensions } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 const COMPACT_HEIGHT = 760;
@@ -21,6 +22,7 @@ const YELLOW_BLOB_BLUR = 65;
 const YELLOW_BLOB_OPACITY = 0.6;
 
 export function HomeScreen() {
+  const router = useRouter();
   const { width, height } = useWindowDimensions();
   const compactHeight = height < COMPACT_HEIGHT;
 
@@ -83,17 +85,29 @@ export function HomeScreen() {
             className="absolute bottom-4 left-10 right-10 items-center"
             style={{ paddingBottom: compactHeight ? 0 : 8 }}
           >
-            <View className="h-[52px] w-full max-w-80 items-center justify-center rounded-full bg-sky-blue shadow-lg shadow-gray-5-overlay">
+            <Pressable
+              accessibilityRole="button"
+              className="h-[52px] w-full max-w-80 items-center justify-center rounded-full bg-sky-blue shadow-lg shadow-gray-5-overlay"
+              onPress={() => router.push('/login' as Href)}
+              style={({ pressed }) => ({ opacity: pressed ? 0.8 : 1 })}
+            >
               <Text className="font-sans text-base font-semibold text-gray-1">로그인하기</Text>
-            </View>
+            </Pressable>
 
             <View className="mt-7 items-center gap-1">
               <Text className="font-sans text-[15px] leading-5 text-gray-4">
                 아직 회원이 아니신가요?
               </Text>
-              <Text className="font-sans text-[15px] font-semibold leading-5 text-gray-6">
-                회원가입
-              </Text>
+              <Pressable
+                accessibilityRole="button"
+                hitSlop={8}
+                onPress={() => router.push('/signup' as Href)}
+                style={({ pressed }) => ({ opacity: pressed ? 0.6 : 1 })}
+              >
+                <Text className="font-sans text-[15px] font-semibold leading-5 text-gray-6">
+                  회원가입
+                </Text>
+              </Pressable>
             </View>
           </View>
         </View>
