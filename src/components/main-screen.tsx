@@ -20,7 +20,7 @@ const YELLOW_BLOB_TOP_RATIO = 0.38;
 const YELLOW_BLOB_BLUR = 65;
 const YELLOW_BLOB_OPACITY = 0.6;
 
-export function HomeScreen() {
+export function MainScreen() {
   const { width, height } = useWindowDimensions();
   const compactHeight = height < COMPACT_HEIGHT;
 
