@@ -1,7 +1,11 @@
-import { Text, View, useWindowDimensions } from 'react-native';
+import { Image, Text, View, useWindowDimensions } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 const COMPACT_HEIGHT = 760;
+
+// 메인 로고
+const LOGO_ASPECT_RATIO = 212 / 129;
+const LOGO_WIDTH = 190;
 
 // 좌측 상단 sky-blue 블롭
 const BLUE_BLOB_SIZE_RATIO = 0.9;
@@ -65,11 +69,14 @@ export function HomeScreen() {
               <Text className="font-sans font-bold text-gray-6">AI 하나로</Text>
             </Text>
 
-            <View
-              accessibilityElementsHidden
-              importantForAccessibility="no-hide-descendants"
-              className="mt-12 h-44 w-full"
-            />
+            <View className="mt-12 h-44 w-full items-center justify-center">
+              <Image
+                source={require('../../assets/images/fitple.webp')}
+                accessibilityLabel="fitple"
+                resizeMode="contain"
+                style={{ width: LOGO_WIDTH, height: LOGO_WIDTH / LOGO_ASPECT_RATIO }}
+              />
+            </View>
           </View>
 
           <View
