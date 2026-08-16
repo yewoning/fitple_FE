@@ -1,5 +1,6 @@
+import { useState } from 'react';
 import { ScrollView, Text, View } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { CommonLayout, type BottomNavKey } from '@/components/layout';
 import { ProjectCarousel } from '@/components/project-carousel';
 import { ProjectGridSection } from '@/components/project-grid-section';
 import {
@@ -10,8 +11,13 @@ import {
 } from '@/components/home-screen.mock';
 
 export function HomeScreen() {
+  const [activeTab, setActiveTab] = useState<BottomNavKey>('home');
+
   return (
-    <SafeAreaView className="flex-1 bg-gray-1">
+    <CommonLayout
+      header={{ title: '홈', showBack: false }}
+      bottomNav={{ activeTab, onTabPress: setActiveTab }}
+    >
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 32 }}>
         <View className="px-5 pt-4">
           <Text className="font-sans text-lg font-semibold leading-6 text-black">
@@ -31,6 +37,6 @@ export function HomeScreen() {
 
         <ProjectGridSection title="AI 오늘의 과제" data={MOCK_TODAY_TASKS} variant="task" />
       </ScrollView>
-    </SafeAreaView>
+    </CommonLayout>
   );
 }
