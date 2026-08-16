@@ -82,6 +82,10 @@ src/
 - NativeWind를 사용하므로 재사용 UI에는 `className`과 Tailwind utility class를 우선 사용합니다. 화면별 예외적인 스타일이나 동적 스타일은 React Native `StyleSheet`를 사용합니다.
 - 기본 글꼴은 Pretendard입니다. 텍스트에는 `font-sans` 클래스를 붙여 Pretendard를 사용하고, 굵기는 `font-medium`, `font-semibold`, `font-bold`로 지정합니다.
 
+## 공통 레이아웃
+
+로그인 이후 화면에서 사용하는 Header와 하단 navbar는 `src/components/layout`에 있습니다. 화면별 표시 설정, 번역 토글, 활성 탭 연결 방법은 [공통 레이아웃 사용 가이드](./docs/common-layout.md)를 확인하세요.
+
 ## 경로 alias
 
 `@/*`는 `src/*`를 가리킵니다. 화면과 컴포넌트 사이처럼 폴더 경계를 넘는 import에는 alias를 사용합니다.
