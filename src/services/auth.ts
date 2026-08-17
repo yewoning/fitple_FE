@@ -1,6 +1,6 @@
 import type {
   ApiResponse,
-  CheckLoginIdData,
+  CheckLoginIdResponse,
   SigninRequest,
   SignupRequest,
 } from '@/types/auth';
@@ -37,6 +37,15 @@ function isApiResponse(value: unknown): value is ApiResponse<unknown> {
 
   const response = value as Record<string, unknown>;
   return typeof response.success === 'boolean' && typeof response.message === 'string';
+}
+
+function isCheckLoginIdResponse(value: unknown): value is CheckLoginIdResponse {
+  if (!value || typeof value !== 'object') {
+    return false;
+  }
+
+  const response = value as Record<string, unknown>;
+  return typeof response.available === 'boolean' && typeof response.message === 'string';
 }
 
 async function request<TData>(path: string, init?: RequestInit): Promise<ApiResponse<TData>> {
@@ -78,9 +87,41 @@ async function request<TData>(path: string, init?: RequestInit): Promise<ApiResp
 }
 
 export function checkLoginId(loginId: string) {
-  return request<CheckLoginIdData>(
-    `/api/auth/check_id?login_id=${encodeURIComponent(loginId)}`,
-  );
+  return requestCheckLoginId(`/api/auth/check_id?login_id=${encodeURIComponent(loginId)}`);
+}
+
+async function requestCheckLoginId(path: string): Promise<CheckLoginIdResponse> {
+  let response: Response;
+
+  try {
+    response = await fetch(`${getApiBaseUrl()}${path}`, {
+      headers: { Accept: 'application/json' },
+    });
+  } catch (error) {
+    if (error instanceof AuthApiError) {
+      throw error;
+    }
+
+    throw new AuthApiError(NETWORK_ERROR_MESSAGE);
+  }
+
+  let body: unknown;
+
+  try {
+    body = await response.json();
+  } catch {
+    throw new AuthApiError(INVALID_RESPONSE_MESSAGE, response.status);
+  }
+
+  if (!isCheckLoginIdResponse(body)) {
+    throw new AuthApiError(INVALID_RESPONSE_MESSAGE, response.status);
+  }
+
+  if (!response.ok) {
+    throw new AuthApiError(body.message || INVALID_RESPONSE_MESSAGE, response.status);
+  }
+
+  return body;
 }
 
 export function signup(payload: SignupRequest) {

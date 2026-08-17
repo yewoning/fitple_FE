@@ -4,8 +4,9 @@ export interface ApiResponse<TData = undefined> {
   data?: TData;
 }
 
-export interface CheckLoginIdData {
+export interface CheckLoginIdResponse {
   available: boolean;
+  message: string;
 }
 
 export interface SignupRequest {

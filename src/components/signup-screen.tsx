@@ -66,7 +66,7 @@ export function SignupScreen() {
 
     try {
       const response = await checkLoginId(loginId);
-      const available = response.data?.available === true;
+      const available = response.available;
       setLoginIdCheck({ loginId, available, message: response.message });
 
       if (!available) {
@@ -113,7 +113,7 @@ export function SignupScreen() {
     try {
       await signin({ login_id: values.loginId, password: values.password });
       authenticate(values.loginId);
-      router.replace("/auth-complete" as Href);
+      router.replace("/profile-setup" as Href);
     } catch {
       const notice = encodeURIComponent(
         "회원가입은 완료되었습니다. 로그인해주세요.",
