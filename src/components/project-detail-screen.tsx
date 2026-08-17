@@ -189,9 +189,7 @@ export function ProjectDetailScreen({ projectId }: ProjectDetailScreenProps) {
               <View className="flex-1">
                 <PrimaryButton
                   label="지원하기"
-                  onPress={() => {
-                    // 지원하기는 API 연동 후 구현
-                  }}
+                  onPress={() => router.push(`/project-apply?id=${project.id}` as Href)}
                 />
               </View>
             </View>
