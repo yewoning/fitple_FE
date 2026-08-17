@@ -1,5 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
 import { Tabs } from 'expo-router';
+import { Text } from 'react-native';
 
 export default function TabsLayout() {
   return (
@@ -8,7 +9,9 @@ export default function TabsLayout() {
         headerShown: false,
         tabBarActiveTintColor: '#4876ee',
         tabBarInactiveTintColor: '#a8adbe',
-        tabBarStyle: { borderTopColor: '#e1e4ee', height: 58, paddingBottom: 8, paddingTop: 6 },
+        tabBarStyle: { borderTopColor: '#e1e4ee', height: 68, paddingBottom: 14, paddingTop: 6 },
+        tabBarItemStyle: { paddingTop: 2 },
+        tabBarLabelStyle: { fontFamily: 'Pretendard', fontSize: 11, lineHeight: 16 },
       }}
     >
       <Tabs.Screen
@@ -18,6 +21,18 @@ export default function TabsLayout() {
           tabBarIcon: ({ color, size }) => (
             <Ionicons name="chatbubble-ellipses" size={size - 2} color={color} />
           ),
+          tabBarLabel: ({ color, focused }) => (
+            <Text
+              style={{
+                fontFamily: focused ? 'Pretendard-SemiBold' : 'Pretendard',
+                fontSize: 11,
+                lineHeight: 16,
+                color,
+              }}
+            >
+              채팅
+            </Text>
+          ),
         }}
       />
       <Tabs.Screen
@@ -25,6 +40,18 @@ export default function TabsLayout() {
         options={{
           title: '마이페이지',
           tabBarIcon: ({ color, size }) => <Ionicons name="person" size={size - 2} color={color} />,
+          tabBarLabel: ({ color, focused }) => (
+            <Text
+              style={{
+                fontFamily: focused ? 'Pretendard-SemiBold' : 'Pretendard',
+                fontSize: 11,
+                lineHeight: 16,
+                color,
+              }}
+            >
+              마이페이지
+            </Text>
+          ),
         }}
       />
     </Tabs>
