@@ -127,8 +127,8 @@ export function SignupScreen() {
     <AuthScreenLayout
       title={
         <>
-          <Text className="font-sans font-semibold">회원가입</Text>하고{`\n`}
-          <Text className="font-sans font-semibold">다양한 프로젝트</Text>에
+          <Text className="font-sans-semibold">회원가입</Text>하고{`\n`}
+          <Text className="font-sans-semibold">다양한 프로젝트</Text>에
           {`\n`}
           참여해보세요
         </>
@@ -225,7 +225,7 @@ export function SignupScreen() {
                   })}
                 >
                   <Text
-                    className={`font-sans text-[13px] font-semibold ${
+                    className={`font-sans-semibold text-[13px] ${
                       loginIdCheckUnavailable ? "text-gray-4" : "text-gray-6"
                     }`}
                   >

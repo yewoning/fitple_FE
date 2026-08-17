@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { type Href, useRouter } from 'expo-router';
 import { Image, Text, View } from 'react-native';
 import { CommonLayout, type BottomNavKey } from '@/components/layout';
 import { ProjectCarousel } from '@/components/project-carousel';
@@ -11,10 +12,20 @@ import {
 } from '@/components/home-screen.mock';
 
 export function HomeScreen() {
+  const router = useRouter();
   const [activeTab, setActiveTab] = useState<BottomNavKey>('home');
 
+  function handleTabPress(tab: BottomNavKey) {
+    if (tab === activeTab) return;
+    if (tab === 'projects') {
+      router.push('/projects' as Href);
+      return;
+    }
+    setActiveTab(tab);
+  }
+
   return (
-    <CommonLayout header={false} bottomNav={{ activeTab, onTabPress: setActiveTab }}>
+    <CommonLayout header={false} bottomNav={{ activeTab, onTabPress: handleTabPress }}>
       <View className="min-h-0 flex-1">
         <View pointerEvents="none" className="absolute inset-0 overflow-hidden">
           <View
@@ -62,9 +73,9 @@ export function HomeScreen() {
               resizeMode="contain"
               style={{ width: 14, height: 14 }}
             />
-            <Text className="font-sans text-sm font-semibold leading-5 text-black">
+            <Text className="font-sans-semibold text-sm leading-5 text-black">
               AI가 {MOCK_USER.nickname}님에게 추천하는{' '}
-              <Text className="font-sans text-sm font-semibold text-dark-blue">프로젝트</Text>를
+              <Text className="font-sans-semibold text-sm text-dark-blue">프로젝트</Text>를
               모았어요!
             </Text>
           </View>

@@ -20,7 +20,7 @@ function getMaxHeight(rows: number) {
 export function ProjectGridSection({ title, data, variant, visibleRows }: ProjectGridSectionProps) {
   return (
     <View className="mt-5 px-5">
-      <Text className="mb-3 font-sans text-base font-semibold text-black">{title}</Text>
+      <Text className="mb-3 font-sans-semibold text-base text-black">{title}</Text>
       <ScrollView
         showsVerticalScrollIndicator={false}
         style={{ maxHeight: getMaxHeight(visibleRows) }}

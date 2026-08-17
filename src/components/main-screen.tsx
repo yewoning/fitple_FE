@@ -23,13 +23,13 @@ export function MainScreen() {
             className="w-full max-w-80 items-center"
             style={{ paddingTop: compactHeight ? 110 : 212 }}
           >
-            <Text className="font-sans text-[26px] font-bold leading-8 text-black">
+            <Text className="font-sans-bold text-[26px] leading-8 text-black">
               환영합니다!
             </Text>
 
             <Text className="mt-3 font-sans text-center text-[17px] leading-[22px] text-gray-6">
               프로젝트의 시작부터{`\n`}끝까지{' '}
-              <Text className="font-sans font-bold text-gray-6">AI 하나로</Text>
+              <Text className="font-sans-bold text-gray-6">AI 하나로</Text>
             </Text>
 
             <View className="mt-12 h-44 w-full items-center justify-center">
@@ -52,7 +52,7 @@ export function MainScreen() {
               onPress={() => router.push('/login' as Href)}
               style={({ pressed }) => ({ opacity: pressed ? 0.8 : 1 })}
             >
-              <Text className="font-sans text-base font-semibold text-gray-1">로그인하기</Text>
+              <Text className="font-sans-semibold text-base text-gray-1">로그인하기</Text>
             </Pressable>
 
             <View className="mt-7 items-center gap-1">
@@ -65,7 +65,7 @@ export function MainScreen() {
                 onPress={() => router.push('/signup' as Href)}
                 style={({ pressed }) => ({ opacity: pressed ? 0.6 : 1 })}
               >
-                <Text className="font-sans text-[15px] font-semibold leading-5 text-gray-6">
+                <Text className="font-sans-semibold text-[15px] leading-5 text-gray-6">
                   회원가입
                 </Text>
               </Pressable>

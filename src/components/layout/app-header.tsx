@@ -93,7 +93,7 @@ export function AppHeader({
                 }`}
               >
                 <Text
-                  className={`font-sans text-sm font-medium ${
+                  className={`font-sans-medium text-sm ${
                     translation.enabled ? 'text-gray-2' : 'text-gray-5'
                   }`}
                 >
@@ -113,7 +113,7 @@ export function AppHeader({
               onPress={onMorePress}
               style={{ width: MORE_WIDTH }}
             >
-              <Text className="font-sans text-[32px] font-bold leading-8 text-dark-blue">⋮</Text>
+              <Text className="font-sans-bold text-[32px] leading-8 text-dark-blue">⋮</Text>
             </Pressable>
           ) : null}
         </View>

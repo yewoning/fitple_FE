@@ -22,7 +22,7 @@ export function AuthCompleteScreen() {
   return (
     <SafeAreaView className="flex-1 bg-gray-1">
       <View className="mx-auto w-full max-w-md flex-1 items-center justify-center gap-4 px-6">
-        <Text className="font-sans text-3xl font-bold text-black">로그인 완료</Text>
+        <Text className="font-sans-bold text-3xl text-black">로그인 완료</Text>
         <Text className="font-sans text-base text-gray-6">{loginId}님, 환영합니다.</Text>
         <View className="mt-6 w-full">
           <PrimaryButton label="로그아웃" onPress={handleLogout} />
