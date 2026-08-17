@@ -31,6 +31,20 @@ export const MOCK_RECOMMENDED_PROJECTS: ProjectCardData[] = [
     subInfo: '프론트엔드 개발자',
     deadline: '2026-08-17',
   },
+  {
+    id: 'rec-5',
+    projectName: '캠퍼스 굿즈 공동구매 서비스',
+    status: 'recruiting',
+    subInfo: '기획·마케팅',
+    deadline: '2026-08-28',
+  },
+  {
+    id: 'rec-6',
+    projectName: '동아리 홍보 영상 제작',
+    status: 'recruiting',
+    subInfo: '영상 편집자',
+    deadline: '2026-09-02',
+  },
 ];
 
 export const MOCK_IN_PROGRESS_PROJECTS: ProjectCardData[] = [
