@@ -111,7 +111,7 @@ export function SignupScreen() {
     }
 
     try {
-      await signin({ loginId: values.loginId, password: values.password });
+      await signin({ login_id: values.loginId, password: values.password });
       authenticate(values.loginId);
       router.replace("/auth-complete" as Href);
     } catch {

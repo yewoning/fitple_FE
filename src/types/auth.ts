@@ -16,6 +16,6 @@ export interface SignupRequest {
 }
 
 export interface SigninRequest {
-  loginId: string;
+  login_id: string;
   password: string;
 }
