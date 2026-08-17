@@ -60,8 +60,8 @@ export function LoginScreen() {
     <AuthScreenLayout
       title={
         <>
-          <Text className="font-sans font-semibold">로그인</Text>하고{`\n`}
-          <Text className="font-sans font-semibold">팀원을 만나보세요!</Text>
+          <Text className="font-sans-semibold">로그인</Text>하고{`\n`}
+          <Text className="font-sans-semibold">팀원을 만나보세요!</Text>
         </>
       }
     >

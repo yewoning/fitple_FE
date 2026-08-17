@@ -37,9 +37,9 @@ export function StatusBadge({ status }: { status: ProjectStatus }) {
 
   return (
     <View
-      className={`rounded-[4px] pb-[2px] pl-[2px] pr-[3px] pt-[1px] ${config.badgeClassName}`}
+      className={`items-center justify-center rounded-[4px] px-1.5 py-0.5 ${config.badgeClassName}`}
     >
-      <Text className={`font-sans text-[10px] font-medium leading-[10px] ${config.textClassName}`}>
+      <Text className={`font-sans-medium text-[10px] leading-[12px] ${config.textClassName}`}>
         {config.label}
       </Text>
     </View>
@@ -51,7 +51,7 @@ export function ProjectCard({ data, variant }: ProjectCardProps) {
     <View className="w-full rounded-2xl bg-white p-3">
       <View className="flex-row items-center justify-between gap-1">
         <Text
-          className="shrink font-sans text-base font-bold leading-none text-black"
+          className="shrink font-sans-bold text-base leading-none text-black"
           style={{ letterSpacing: 0.16 }}
           numberOfLines={1}
         >
@@ -68,7 +68,7 @@ export function ProjectCard({ data, variant }: ProjectCardProps) {
           </Text>
         </View>
 
-        <Text className="font-sans text-xs font-semibold text-dark-blue">
+        <Text className="font-sans-semibold text-xs text-dark-blue">
           {getDDayLabel(data.deadline)}
         </Text>
       </View>
