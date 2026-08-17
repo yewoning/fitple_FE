@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { useRouter } from 'expo-router';
+import { type Href, useRouter } from 'expo-router';
 import { Animated, Image, Pressable, ScrollView, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { PrimaryButton } from '@/components/primary-button';
@@ -215,8 +215,8 @@ export function ProjectDetailScreen({ projectId }: ProjectDetailScreenProps) {
                     accessibilityRole="button"
                     className="mt-4 flex-row items-center gap-2 rounded-2xl bg-white px-4 py-4"
                     onPress={() => {
-                      // 게시물 수정은 API 연동 후 구현
                       closeMenu();
+                      router.push(`/project-edit?id=${project.id}` as Href);
                     }}
                     style={({ pressed }) => ({ opacity: pressed ? 0.7 : 1 })}
                   >
