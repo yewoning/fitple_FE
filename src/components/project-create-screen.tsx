@@ -34,6 +34,8 @@ export function ProjectCreateScreen() {
   const router = useRouter();
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
+  const [titleError, setTitleError] = useState<string | null>(null);
+  const [descriptionError, setDescriptionError] = useState<string | null>(null);
   const [showAiResult, setShowAiResult] = useState(false);
   const sheetTranslateY = useRef(new Animated.Value(800)).current;
 
@@ -49,6 +51,19 @@ export function ProjectCreateScreen() {
 
   function openAiResult() {
     setShowAiResult(true);
+  }
+
+  function handleSubmit() {
+    const trimmedTitle = title.trim();
+    const trimmedDescription = description.trim();
+
+    setTitleError(trimmedTitle ? null : '프로젝트 제목을 입력해주세요.');
+    setDescriptionError(trimmedDescription ? null : '프로젝트 소개글을 입력해주세요.');
+
+    if (!trimmedTitle || !trimmedDescription) return;
+
+    // 실제 생성된 프로젝트 id는 생성 API 연동 후 여기서 받아와 전달
+    router.push('/project-complete?projectId=recruit-1' as Href);
   }
 
   function closeAiResult() {
@@ -124,11 +139,19 @@ export function ProjectCreateScreen() {
             <TextInput
               accessibilityLabel="프로젝트 제목"
               className="mt-2 h-[52px] rounded-2xl bg-white px-4 font-sans text-sm text-black"
-              onChangeText={setTitle}
+              onChangeText={(value) => {
+                setTitle(value);
+                if (titleError) setTitleError(null);
+              }}
               placeholder="프로젝트 제목을 입력해주세요"
               placeholderTextColor="#828797"
               value={title}
             />
+            {titleError ? (
+              <Text className="ml-3 mt-1 font-sans text-[12px] leading-4 text-red-600">
+                {titleError}
+              </Text>
+            ) : null}
           </View>
 
           <View className="mt-6 px-5">
@@ -138,7 +161,10 @@ export function ProjectCreateScreen() {
                 accessibilityLabel="프로젝트 소개글"
                 className="min-h-[140px] font-sans text-sm text-black"
                 multiline
-                onChangeText={setDescription}
+                onChangeText={(value) => {
+                  setDescription(value);
+                  if (descriptionError) setDescriptionError(null);
+                }}
                 placeholder="원하는 내용을 자유롭게 입력해주세요"
                 placeholderTextColor="#828797"
                 textAlignVertical="top"
@@ -156,6 +182,11 @@ export function ProjectCreateScreen() {
                 <Text className="font-sans-medium text-xs text-gray-5">AI 생성하기</Text>
               </Pressable>
             </View>
+            {descriptionError ? (
+              <Text className="ml-3 mt-1 font-sans text-[12px] leading-4 text-red-600">
+                {descriptionError}
+              </Text>
+            ) : null}
           </View>
 
           <View className="mt-6 flex-row items-center gap-3 px-5">
@@ -191,12 +222,7 @@ export function ProjectCreateScreen() {
           </View>
 
           <View className="mt-8 px-5">
-            <PrimaryButton
-              label="완료하기"
-              onPress={() => {
-                // 다음 단계(AI 생성 결과 화면)는 미구현
-              }}
-            />
+            <PrimaryButton label="완료하기" onPress={handleSubmit} />
           </View>
         </ScrollView>
       </KeyboardAvoidingView>
@@ -256,7 +282,10 @@ export function ProjectCreateScreen() {
           <View className="mt-5">
             <PrimaryButton
               label="완료하기"
-              onPress={() => router.push('/project-complete' as Href)}
+              onPress={() =>
+                // 실제 생성된 프로젝트 id는 생성 API 연동 후 여기서 받아와 전달
+                router.push('/project-complete?projectId=recruit-1' as Href)
+              }
             />
           </View>
           </View>
