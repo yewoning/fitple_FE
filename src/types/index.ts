@@ -75,6 +75,17 @@ export interface TodayTask {
   dueDate: string;
 }
 
+// 프로젝트 로드맵 화면 스크린샷 기준
+export interface RoadmapPhase {
+  phaseId: number;
+  order: number;
+  title: string;
+  assignee: string;
+  description: string;
+  dueDate: string;
+  deadline: string;
+}
+
 // 스크랩 / 지원 현황 화면은 프로젝트팀이 이미 만든 RecruitingProjectCard를 그대로 재사용합니다.
 export type ScrapItem = RecruitingProjectCardData;
 export interface ApplicationItem extends RecruitingProjectCardData {

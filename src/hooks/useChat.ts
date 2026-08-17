@@ -8,6 +8,7 @@ import {
   getMeetingMinuteDetail,
   getMeetingMinutes,
   getMessages,
+  getRoadmap,
   getTeamMembers,
   getTodayTasks,
   sendMessage,
@@ -22,6 +23,7 @@ export const chatKeys = {
     ['chat', 'meeting-minutes', projectId, meetingMinuteId] as const,
   tasks: (projectId: number) => ['chat', 'tasks', projectId] as const,
   members: (projectId: number) => ['chat', 'members', projectId] as const,
+  roadmap: (projectId: number) => ['chat', 'roadmap', projectId] as const,
 };
 
 export function useChatProjectsQuery() {
@@ -100,5 +102,12 @@ export function useTeamMembersQuery(projectId: number) {
   return useQuery({
     queryKey: chatKeys.members(projectId),
     queryFn: () => getTeamMembers(projectId),
+  });
+}
+
+export function useRoadmapQuery(projectId: number) {
+  return useQuery({
+    queryKey: chatKeys.roadmap(projectId),
+    queryFn: () => getRoadmap(projectId),
   });
 }

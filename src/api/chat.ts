@@ -5,6 +5,7 @@ import {
   mockMeetingMinuteDetail,
   mockMeetingMinutes,
   mockMessages,
+  mockRoadmap,
   mockTeamMembers,
   mockTodayTasks,
 } from './mockData';
@@ -119,5 +120,14 @@ export async function getTeamMembers(projectId: number) {
     return mockDelay({ members: mockTeamMembers });
   }
   const { data } = await apiClient.get(`/api/chat/rooms/${projectId}/members`);
+  return data;
+}
+
+// ⚠️ Notion 문서에 정확한 경로가 명시되지 않아 REST 관례로 추정 구현
+export async function getRoadmap(projectId: number) {
+  if (USE_MOCK) {
+    return mockDelay({ phases: mockRoadmap });
+  }
+  const { data } = await apiClient.get(`/api/chat/rooms/${projectId}/roadmap`);
   return data;
 }

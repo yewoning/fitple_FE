@@ -27,6 +27,8 @@ export default function ChatRoomSettingsScreen() {
     else if (key === 'meetings')
       router.push({ pathname: '/chat/[projectId]/meetings', params: { projectId: projectIdParam } });
     else if (key === 'tasks') router.push({ pathname: '/chat/[projectId]/tasks', params: { projectId: projectIdParam } });
+    else if (key === 'roadmap')
+      router.push({ pathname: '/chat/[projectId]/roadmap', params: { projectId: projectIdParam } });
     else Alert.alert('알림', '준비 중인 기능입니다.');
   };
 
