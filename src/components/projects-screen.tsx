@@ -36,7 +36,11 @@ export function ProjectsScreen() {
         >
           <View className="mt-3 flex-1 justify-between px-5">
             {MOCK_RECRUITING_PROJECTS.map((project) => (
-              <RecruitingProjectCard key={project.id} data={project} />
+              <RecruitingProjectCard
+                key={project.id}
+                data={project}
+                onPress={() => router.push(`/project/${project.id}` as Href)}
+              />
             ))}
           </View>
         </ScrollView>

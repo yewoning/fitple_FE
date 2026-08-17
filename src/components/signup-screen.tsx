@@ -1,7 +1,8 @@
 import { AuthInput } from "@/components/auth-input";
 import { AuthScreenLayout } from "@/components/auth-screen-layout";
 import { PrimaryButton } from "@/components/primary-button";
-import { AuthApiError, checkLoginId, signin, signup } from "@/services/auth";
+import { ApiError } from "@/services/api-client";
+import { checkLoginId, signin, signup } from "@/services/auth";
 import { useAuthStore } from "@/store/auth-store";
 import type { SignupRequest } from "@/types/auth";
 import {
@@ -74,7 +75,7 @@ export function SignupScreen() {
       }
     } catch (error) {
       const message =
-        error instanceof AuthApiError
+        error instanceof ApiError
           ? error.message
           : "아이디 중복확인에 실패했습니다. 잠시 후 다시 시도해주세요.";
       setLoginIdCheck(null);
@@ -103,7 +104,7 @@ export function SignupScreen() {
       await signup({ ...values, name: values.name.trim() });
     } catch (error) {
       setRequestError(
-        error instanceof AuthApiError
+        error instanceof ApiError
           ? error.message
           : "회원가입에 실패했습니다. 잠시 후 다시 시도해주세요.",
       );

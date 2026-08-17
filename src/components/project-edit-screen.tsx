@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { type Href, useRouter } from 'expo-router';
+import { useRouter } from 'expo-router';
 import {
   Animated,
   Image,
@@ -14,6 +14,7 @@ import {
 } from 'react-native';
 import { CommonLayout } from '@/components/layout';
 import { PrimaryButton } from '@/components/primary-button';
+import { MOCK_RECRUITING_PROJECTS } from '@/components/projects-screen.mock';
 
 const MOCK_AI_RESULT = {
   summary:
@@ -30,10 +31,25 @@ const MOCK_AI_RESULT = {
 const DISMISS_DISTANCE = 100;
 const DISMISS_VELOCITY = 0.5;
 
-export function ProjectCreateScreen() {
+export interface ProjectEditScreenProps {
+  projectId?: string;
+}
+
+export function ProjectEditScreen({ projectId }: ProjectEditScreenProps) {
   const router = useRouter();
-  const [title, setTitle] = useState('');
-  const [description, setDescription] = useState('');
+  // 수정 대상 프로젝트 조회 API 연동 전까지는 목데이터로 대체 표시
+  const project =
+    MOCK_RECRUITING_PROJECTS.find((item) => item.id === projectId) ?? MOCK_RECRUITING_PROJECTS[0];
+
+  const [title, setTitle] = useState(project.projectName);
+  const [description, setDescription] = useState(
+    `${project.projectName}에 관심 있는 팀원을 모집하고 있어요. 함께 기획부터 실행까지 즐겁게 진행해요.`
+  );
+  const [recruitCount, setRecruitCount] = useState('4명');
+  const [recruitRole, setRecruitRole] = useState(project.subInfo ?? '');
+  const [duration, setDuration] = useState('~ 9월 31일');
+  const [meetingSchedule, setMeetingSchedule] = useState('주 1회 오프라인');
+  const [deadline, setDeadline] = useState(project.deadline?.slice(2).replace(/-/g, '.') ?? '');
   const [titleError, setTitleError] = useState<string | null>(null);
   const [descriptionError, setDescriptionError] = useState<string | null>(null);
   const [showAiResult, setShowAiResult] = useState(false);
@@ -62,8 +78,8 @@ export function ProjectCreateScreen() {
 
     if (!trimmedTitle || !trimmedDescription) return;
 
-    // 실제 생성된 프로젝트 id는 생성 API 연동 후 여기서 받아와 전달
-    router.push('/project-complete?projectId=recruit-1' as Href);
+    // 수정 내용 저장은 API 연동 후 구현
+    router.back();
   }
 
   function closeAiResult() {
@@ -98,7 +114,7 @@ export function ProjectCreateScreen() {
   ).current;
 
   return (
-    <CommonLayout header={{ title: '프로젝트 만들기', showBack: true }} bottomNav={false}>
+    <CommonLayout header={{ title: '게시물 수정', showBack: true }} bottomNav={false}>
       <KeyboardAvoidingView
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
         className="flex-1"
@@ -112,8 +128,8 @@ export function ProjectCreateScreen() {
             <View className="relative h-28 w-28">
               <View className="h-28 w-28 items-center justify-center overflow-hidden rounded-full bg-white">
                 <Image
-                  source={require('../../assets/images/fitple-gray.png')}
-                  accessibilityLabel="기본 프로젝트 이미지"
+                  source={project.icon}
+                  accessibilityLabel="프로젝트 대표 이미지"
                   resizeMode="contain"
                   style={{ width: 72, height: 72 }}
                 />
@@ -171,10 +187,73 @@ export function ProjectCreateScreen() {
                 value={description}
               />
 
+              <View className="mt-3 border-t border-dashed border-gray-3" />
+              <View className="mt-3 gap-1.5">
+                <View className="flex-row items-center gap-2">
+                  <Text className="font-sans-medium text-xs text-gray-6">모집 인원</Text>
+                  <TextInput
+                    accessibilityLabel="모집 인원"
+                    className="flex-1 font-sans text-xs text-gray-6"
+                    onChangeText={setRecruitCount}
+                    placeholder="예: 4명"
+                    placeholderTextColor="#828797"
+                    value={recruitCount}
+                  />
+                </View>
+
+                <View className="flex-row items-center gap-2">
+                  <Text className="font-sans-medium text-xs text-gray-6">모집 역할</Text>
+                  <TextInput
+                    accessibilityLabel="모집 역할"
+                    className="flex-1 font-sans text-xs text-gray-6"
+                    onChangeText={setRecruitRole}
+                    placeholder="예: 기획 · 촬영 · 영상 편집"
+                    placeholderTextColor="#828797"
+                    value={recruitRole}
+                  />
+                </View>
+
+                <View className="flex-row items-center gap-2">
+                  <Text className="font-sans-medium text-xs text-gray-6">진행 기간</Text>
+                  <TextInput
+                    accessibilityLabel="진행 기간"
+                    className="flex-1 font-sans text-xs text-gray-6"
+                    onChangeText={setDuration}
+                    placeholder="예: ~ 9월 31일"
+                    placeholderTextColor="#828797"
+                    value={duration}
+                  />
+                </View>
+
+                <View className="flex-row items-center gap-2">
+                  <Text className="font-sans-medium text-xs text-gray-6">회의 일정</Text>
+                  <TextInput
+                    accessibilityLabel="회의 일정"
+                    className="flex-1 font-sans text-xs text-gray-6"
+                    onChangeText={setMeetingSchedule}
+                    placeholder="예: 주 1회 오프라인"
+                    placeholderTextColor="#828797"
+                    value={meetingSchedule}
+                  />
+                </View>
+
+                <View className="flex-row items-center gap-2">
+                  <Text className="font-sans-medium text-xs text-gray-6">모집 마감</Text>
+                  <TextInput
+                    accessibilityLabel="모집 마감"
+                    className="flex-1 font-sans text-xs text-gray-6"
+                    onChangeText={setDeadline}
+                    placeholder="예: 26.08.08"
+                    placeholderTextColor="#828797"
+                    value={deadline}
+                  />
+                </View>
+              </View>
+
               <Pressable
                 accessibilityLabel="AI 생성하기"
                 accessibilityRole="button"
-                className="mt-2 flex-row items-center gap-1 self-end rounded-full bg-white-dark-sky-blue px-3 py-1.5"
+                className="mt-3 flex-row items-center gap-1 self-end rounded-full bg-white-dark-sky-blue px-3 py-1.5"
                 onPress={openAiResult}
                 style={({ pressed }) => ({ opacity: pressed ? 0.7 : 1 })}
               >
@@ -282,10 +361,11 @@ export function ProjectCreateScreen() {
           <View className="mt-5">
             <PrimaryButton
               label="완료하기"
-              onPress={() =>
-                // 실제 생성된 프로젝트 id는 생성 API 연동 후 여기서 받아와 전달
-                router.push('/project-complete?projectId=recruit-1' as Href)
-              }
+              onPress={() => {
+                // 수정 내용 저장은 API 연동 후 구현
+                closeAiResult();
+                router.back();
+              }}
             />
           </View>
           </View>

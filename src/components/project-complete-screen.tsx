@@ -1,13 +1,20 @@
 import { useState } from 'react';
 import * as Clipboard from 'expo-clipboard';
+import { type Href, useRouter } from 'expo-router';
 import { Pressable, Text, View } from 'react-native';
 import QRCode from 'react-native-qrcode-svg';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { ScreenBackground } from '@/components/screen-background';
 
 const MOCK_INVITE_URL = 'fitple.app/invite/7K3M9P';
+const DEFAULT_PROJECT_ID = 'recruit-1';
 
-export function ProjectCompleteScreen() {
+export interface ProjectCompleteScreenProps {
+  projectId?: string;
+}
+
+export function ProjectCompleteScreen({ projectId }: ProjectCompleteScreenProps) {
+  const router = useRouter();
   const [copied, setCopied] = useState(false);
 
   async function handleCopy() {
@@ -16,12 +23,28 @@ export function ProjectCompleteScreen() {
     setTimeout(() => setCopied(false), 1500);
   }
 
+  function handleClose() {
+    router.replace(`/project/${projectId ?? DEFAULT_PROJECT_ID}` as Href);
+  }
+
   return (
     <View className="flex-1 bg-gray-1">
       <ScreenBackground />
 
       <SafeAreaView className="flex-1">
-        <View className="flex-1 items-center px-10 pt-24">
+        <View className="px-5 pt-2">
+          <Pressable
+            accessibilityLabel="닫기"
+            accessibilityRole="button"
+            className="h-11 w-11 items-center justify-center"
+            hitSlop={4}
+            onPress={handleClose}
+          >
+            <Text className="font-sans text-2xl text-gray-6">✕</Text>
+          </Pressable>
+        </View>
+
+        <View className="flex-1 items-center px-10 pt-8">
           <Text className="text-center font-sans-bold text-2xl leading-8 text-black">
             프로젝트 준비가{`\n`}모두 완료되었어요!
           </Text>
