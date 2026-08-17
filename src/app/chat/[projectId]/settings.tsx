@@ -1,11 +1,10 @@
 import { Ionicons } from '@expo/vector-icons';
+import { Image } from 'expo-image';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { Alert, ScrollView, Text, TouchableOpacity, View } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
 
-import { Avatar } from '@/components/ui/avatar';
+import { CommonLayout } from '@/components/layout';
 import { PrimaryButton } from '@/components/ui/button';
-import { ScreenHeader } from '@/components/ui/screen-header';
 import { useChatRoomQuery } from '@/hooks/useChat';
 
 const MENU = [
@@ -32,16 +31,28 @@ export default function ChatRoomSettingsScreen() {
   };
 
   return (
-    <SafeAreaView className="flex-1 bg-gray-1">
-      <ScreenHeader title="채팅방 설정" />
+    <CommonLayout header={{ title: '채팅방 설정', showBack: true }} bottomNav={false}>
       <ScrollView contentContainerClassName="gap-5 p-5">
         <View className="flex-row items-center gap-3">
-          <Avatar uri={room?.projectIconUrl} size={52} />
+          {room?.projectIconUrl ? (
+            <Image
+              source={{ uri: room.projectIconUrl }}
+              style={{ width: 52, height: 52, borderRadius: 14 }}
+              contentFit="cover"
+            />
+          ) : (
+            <View className="h-[52px] w-[52px] items-center justify-center rounded-2xl bg-gray-2">
+              <Ionicons name="folder-outline" size={26} color="#a8adbe" />
+            </View>
+          )}
           <View className="flex-1">
-            <Text className="font-sans text-lg font-bold text-black" numberOfLines={1}>
+            <Text className="font-sans-bold text-lg text-black" numberOfLines={1}>
               {room?.projectName ?? ''}
             </Text>
-            <Text className="mt-0.5 font-sans text-[13px] text-sky-blue">팀원 {room?.memberCount ?? 0}명</Text>
+            <View className="mt-0.5 flex-row items-center gap-1">
+              <Text className="font-sans text-[13px] text-sky-blue">팀원 {room?.memberCount ?? 0}명</Text>
+              <Ionicons name="add-circle-outline" size={16} color="#4876ee" />
+            </View>
           </View>
         </View>
 
@@ -55,7 +66,7 @@ export default function ChatRoomSettingsScreen() {
             >
               <Ionicons name={item.icon as any} size={20} color="#3f3f3f" />
               <View className="flex-1">
-                <Text className="font-sans text-[15px] font-semibold text-black">{item.title}</Text>
+                <Text className="font-sans-semibold text-[15px] text-black">{item.title}</Text>
                 <Text className="mt-0.5 font-sans text-[11px] text-gray-6">{item.desc}</Text>
               </View>
               <Ionicons name="chevron-forward" size={18} color="#a8adbe" />
@@ -65,6 +76,6 @@ export default function ChatRoomSettingsScreen() {
 
         <PrimaryButton label="프로젝트 나가기" onPress={() => Alert.alert('알림', '프로젝트를 나가시겠어요?')} />
       </ScrollView>
-    </SafeAreaView>
+    </CommonLayout>
   );
 }

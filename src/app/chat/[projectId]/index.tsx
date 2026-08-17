@@ -1,19 +1,9 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';
-import {
-  Alert,
-  FlatList,
-  KeyboardAvoidingView,
-  Platform,
-  Switch,
-  Text,
-  TextInput,
-  TouchableOpacity,
-  View,
-} from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { Alert, FlatList, KeyboardAvoidingView, Platform, Text, TextInput, TouchableOpacity, View } from 'react-native';
 
+import { CommonLayout } from '@/components/layout';
 import { Avatar } from '@/components/ui/avatar';
 import {
   useChatMessagesQuery,
@@ -113,28 +103,17 @@ export default function ChatRoomScreen() {
   };
 
   return (
-    <SafeAreaView className="flex-1 bg-gray-1">
-      <View className="h-[52px] flex-row items-center gap-2 px-4">
-        <TouchableOpacity onPress={() => router.back()} hitSlop={12}>
-          <Ionicons name="arrow-back" size={24} color="#3f3f3f" />
-        </TouchableOpacity>
-        <Text className="flex-1 font-sans text-[15px] font-semibold text-black" numberOfLines={1}>
-          {room?.projectName ?? '채팅방'}
-        </Text>
-        <View className="flex-row items-center gap-3">
-          <View className="flex-row items-center gap-1">
-            <Text className="font-sans text-[11px] text-gray-6">번역</Text>
-            <Switch value={translateOn} onValueChange={setTranslateOn} trackColor={{ true: '#4876ee', false: '#cccfdb' }} />
-          </View>
-          <TouchableOpacity
-            onPress={() => router.push({ pathname: '/chat/[projectId]/settings', params: { projectId: projectIdParam } })}
-            hitSlop={10}
-          >
-            <Ionicons name="ellipsis-vertical" size={20} color="#3f3f3f" />
-          </TouchableOpacity>
-        </View>
-      </View>
-
+    <CommonLayout
+      header={{
+        title: room?.projectName ?? '채팅방',
+        showBack: true,
+        translation: { enabled: translateOn, onChange: setTranslateOn },
+        showMore: true,
+        onMorePress: () =>
+          router.push({ pathname: '/chat/[projectId]/settings', params: { projectId: projectIdParam } }),
+      }}
+      bottomNav={false}
+    >
       <KeyboardAvoidingView
         style={{ flex: 1 }}
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
@@ -153,11 +132,11 @@ export default function ChatRoomScreen() {
           {QUICK_ACTIONS.map((action) => (
             <TouchableOpacity
               key={action.key}
-              className="rounded-full border border-sky-blue px-3 py-1.5"
+              className="rounded-full border border-gray-2 bg-white px-3 py-1.5"
               onPress={() => handleQuickAction(action.key)}
               disabled={actionLoading !== null}
             >
-              <Text className="font-sans text-[11px] font-bold text-sky-blue">
+              <Text className="font-sans-medium text-[11px] text-gray-6">
                 {actionLoading === action.key ? '처리 중...' : action.label}
               </Text>
             </TouchableOpacity>
@@ -182,7 +161,7 @@ export default function ChatRoomScreen() {
           </TouchableOpacity>
         </View>
       </KeyboardAvoidingView>
-    </SafeAreaView>
+    </CommonLayout>
   );
 }
 
@@ -194,7 +173,7 @@ function MessageBubble({ message, translateOn }: { message: ChatMessage; transla
           <Ionicons name="chatbubble-ellipses" size={16} color="#FFFFFF" />
         </View>
         <View className="gap-1 rounded-2xl bg-white-dark-sky-blue p-3">
-          <Text className="font-sans text-[11px] font-bold text-dark-blue">핏봇</Text>
+          <Text className="font-sans-bold text-[11px] text-dark-blue">핏봇</Text>
           <Text className="font-sans text-[15px] text-black">{message.content}</Text>
         </View>
       </View>
