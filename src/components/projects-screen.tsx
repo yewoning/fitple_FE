@@ -45,9 +45,7 @@ export function ProjectsScreen() {
           accessibilityLabel="새 프로젝트 만들기"
           accessibilityRole="button"
           className="absolute bottom-6 right-5 h-11 w-11 items-center justify-center rounded-full bg-sky-blue shadow-lg shadow-gray-5-overlay"
-          onPress={() => {
-            // 프로젝트 생성 화면은 아직 구현되지 않음
-          }}
+          onPress={() => router.push('/project-create' as Href)}
           style={({ pressed }) => ({ opacity: pressed ? 0.8 : 1 })}
         >
           <View className="absolute h-[2px] w-4 rounded-full bg-white" />
