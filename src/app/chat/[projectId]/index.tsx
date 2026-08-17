@@ -129,18 +129,31 @@ export default function ChatRoomScreen() {
         />
 
         <View className="flex-row flex-wrap gap-2 px-4 pb-2">
-          {QUICK_ACTIONS.map((action) => (
-            <TouchableOpacity
-              key={action.key}
-              className="rounded-full border border-gray-2 bg-white px-3 py-1.5"
-              onPress={() => handleQuickAction(action.key)}
-              disabled={actionLoading !== null}
-            >
-              <Text className="font-sans-medium text-[11px] text-gray-6">
-                {actionLoading === action.key ? '처리 중...' : action.label}
-              </Text>
-            </TouchableOpacity>
-          ))}
+          {QUICK_ACTIONS.map((action, index) => {
+            const isPrimary = index === 0;
+            return (
+              <TouchableOpacity
+                key={action.key}
+                className={
+                  isPrimary
+                    ? 'rounded-full bg-dark-blue px-3 py-1.5'
+                    : 'rounded-full border border-gray-2 bg-white px-3 py-1.5'
+                }
+                onPress={() => handleQuickAction(action.key)}
+                disabled={actionLoading !== null}
+              >
+                <Text
+                  className={
+                    isPrimary
+                      ? 'font-sans-medium text-[11px] text-white'
+                      : 'font-sans-medium text-[11px] text-gray-6'
+                  }
+                >
+                  {actionLoading === action.key ? '처리 중...' : action.label}
+                </Text>
+              </TouchableOpacity>
+            );
+          })}
         </View>
 
         <View className="flex-row items-center gap-2 border-t border-gray-2 px-4 py-2">
@@ -183,10 +196,10 @@ function MessageBubble({ message, translateOn }: { message: ChatMessage; transla
   if (message.isMe) {
     return (
       <View className="max-w-[80%] flex-row items-end gap-1.5 self-end">
+        <Text className="font-sans text-[11px] text-gray-4">{formatTime(message.sentAt)}</Text>
         <View className="rounded-2xl rounded-br-sm bg-sky-blue px-3.5 py-2.5">
           <Text className="font-sans text-[15px] text-white">{message.content}</Text>
         </View>
-        <Text className="font-sans text-[11px] text-gray-4">{formatTime(message.sentAt)}</Text>
       </View>
     );
   }
@@ -194,22 +207,30 @@ function MessageBubble({ message, translateOn }: { message: ChatMessage; transla
   const showTranslation = translateOn && message.translatedContent;
 
   return (
-    <View className="max-w-[85%] flex-row gap-2">
-      <Avatar uri={message.profileImageUrl} size={32} />
-      <View className="flex-1">
-        <Text className="mb-1 font-sans text-[11px] text-gray-6">{message.senderName}</Text>
-        <View className="flex-row items-end gap-1.5">
-          <View className="rounded-2xl rounded-bl-sm bg-white px-3.5 py-2.5">
-            <Text className="font-sans text-[15px] text-black">{message.content}</Text>
+    <View className="gap-1.5">
+      <View className="max-w-[85%] flex-row gap-2">
+        <Avatar uri={message.profileImageUrl} size={32} />
+        <View className="flex-1">
+          <Text className="mb-1 font-sans text-[11px] text-gray-6">{message.senderName}</Text>
+          <View className="flex-row items-end gap-1.5">
+            <View className="rounded-2xl rounded-bl-sm bg-white px-3.5 py-2.5">
+              <Text className="font-sans text-[15px] text-black">{message.content}</Text>
+            </View>
+            {!showTranslation ? (
+              <Text className="font-sans text-[11px] text-gray-4">{formatTime(message.sentAt)}</Text>
+            ) : null}
           </View>
-          <Text className="font-sans text-[11px] text-gray-4">{formatTime(message.sentAt)}</Text>
         </View>
-        {showTranslation ? (
-          <View className="mt-1.5 self-start rounded-xl bg-white-dark-sky-blue px-3 py-2">
-            <Text className="font-sans text-[13px] text-dark-blue">{message.translatedContent}</Text>
-          </View>
-        ) : null}
       </View>
+
+      {showTranslation ? (
+        <View className="max-w-[80%] flex-row items-end gap-1.5 self-end">
+          <Text className="font-sans text-[11px] text-gray-4">{formatTime(message.sentAt)}</Text>
+          <View className="rounded-2xl rounded-br-sm bg-white-dark-sky-blue px-3.5 py-2.5">
+            <Text className="font-sans text-[15px] text-dark-blue">{message.translatedContent}</Text>
+          </View>
+        </View>
+      ) : null}
     </View>
   );
 }
