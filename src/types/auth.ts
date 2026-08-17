@@ -20,3 +20,11 @@ export interface SigninRequest {
   login_id: string;
   password: string;
 }
+
+/** `GET /api/profile` 응답. ApiResponse 봉투를 쓰지 않는 평평한 객체다. */
+export interface ProfileResponse {
+  profileImageUrl?: string | null;
+  name?: string | null;
+  profileSummary?: string | null;
+  createdByAI?: boolean;
+}

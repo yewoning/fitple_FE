@@ -1,12 +1,15 @@
 import type {
   ApiResponse,
   CheckLoginIdResponse,
+  ProfileResponse,
   SigninRequest,
   SignupRequest,
 } from '@/types/auth';
 
 const NETWORK_ERROR_MESSAGE = '서버에 연결하지 못했습니다. 잠시 후 다시 시도해주세요.';
 const INVALID_RESPONSE_MESSAGE = '서버 응답을 확인할 수 없습니다. 잠시 후 다시 시도해주세요.';
+
+const PROFILE_PATH = '/api/profile';
 
 export class AuthApiError extends Error {
   constructor(
@@ -138,4 +141,51 @@ export function signin(payload: SigninRequest) {
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(payload),
   });
+}
+
+/**
+ * 프로필 설정 여부를 조회한다.
+ *
+ * - `true`: 설정 완료
+ * - `false`: 미설정 (프로필 없음(404) 또는 요약이 비어 있음)
+ * - `null`: 판단 불가 (인증 실패·서버 오류·네트워크 오류·응답 형식 불일치)
+ *
+ * 호출부가 라우팅 분기에만 쓰므로 예외를 던지지 않는다.
+ */
+export async function fetchHasProfile(): Promise<boolean | null> {
+  let response: Response;
+
+  try {
+    response = await fetch(`${getApiBaseUrl()}${PROFILE_PATH}`, {
+      headers: { Accept: 'application/json' },
+      // 인증 방식이 확정되지 않아 세션 쿠키를 가정한다. 토큰 방식이 되면 여기와 request()를 함께 수정한다.
+      credentials: 'include',
+    });
+  } catch {
+    return null;
+  }
+
+  if (response.status === 404) {
+    return false;
+  }
+
+  if (!response.ok) {
+    return null;
+  }
+
+  let body: unknown;
+
+  try {
+    body = await response.json();
+  } catch {
+    return null;
+  }
+
+  if (!body || typeof body !== 'object') {
+    return null;
+  }
+
+  const { profileSummary } = body as ProfileResponse;
+
+  return typeof profileSummary === 'string' && profileSummary.trim().length > 0;
 }

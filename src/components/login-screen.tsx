@@ -1,7 +1,7 @@
 import { AuthInput } from "@/components/auth-input";
 import { AuthScreenLayout } from "@/components/auth-screen-layout";
 import { PrimaryButton } from "@/components/primary-button";
-import { AuthApiError, signin } from "@/services/auth";
+import { AuthApiError, fetchHasProfile, signin } from "@/services/auth";
 import { useAuthStore } from "@/store/auth-store";
 import { LOGIN_ID_MESSAGE, LOGIN_ID_PATTERN } from "@/utils/auth-validation";
 import { type Href, useLocalSearchParams, useRouter } from "expo-router";
@@ -45,15 +45,23 @@ export function LoginScreen() {
 
     try {
       await signin({ login_id: values.loginId, password: values.password });
-      authenticate(values.loginId);
-      router.replace("/auth-complete" as Href);
     } catch (error) {
       setRequestError(
         error instanceof AuthApiError
           ? error.message
           : "로그인하지 못했습니다. 잠시 후 다시 시도해주세요.",
       );
+      return;
     }
+
+    authenticate(values.loginId);
+
+    // 프로필 조회 실패(null)는 로그인 실패로 다루지 않고 홈으로 보낸다.
+    const hasProfile = await fetchHasProfile();
+
+    router.replace(
+      (hasProfile === false ? "/profile-setup" : "/home") as Href,
+    );
   });
 
   return (
