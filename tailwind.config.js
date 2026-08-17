@@ -33,6 +33,9 @@ module.exports = {
       },
       fontFamily: {
         sans: ['Pretendard'],
+        'sans-medium': ['Pretendard-Medium'],
+        'sans-semibold': ['Pretendard-SemiBold'],
+        'sans-bold': ['Pretendard-Bold'],
       },
     },
   },
