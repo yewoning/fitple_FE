@@ -29,7 +29,7 @@ export function PrimaryButton({
       style={({ pressed }) => ({ opacity: pressed && !unavailable ? 0.8 : 1 })}
     >
       {loading ? <ActivityIndicator color="#f6f8fb" /> : null}
-      <Text className="font-sans text-base font-semibold text-gray-1">
+      <Text className="font-sans-semibold text-base text-gray-1">
         {loading ? loadingLabel : label}
       </Text>
     </Pressable>

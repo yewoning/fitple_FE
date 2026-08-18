@@ -1,7 +1,8 @@
 import { AuthInput } from "@/components/auth-input";
 import { AuthScreenLayout } from "@/components/auth-screen-layout";
 import { PrimaryButton } from "@/components/primary-button";
-import { AuthApiError, checkLoginId, signin, signup } from "@/services/auth";
+import { ApiError } from "@/services/api-client";
+import { checkLoginId, signin, signup } from "@/services/auth";
 import { useAuthStore } from "@/store/auth-store";
 import type { SignupRequest } from "@/types/auth";
 import {
@@ -66,7 +67,7 @@ export function SignupScreen() {
 
     try {
       const response = await checkLoginId(loginId);
-      const available = response.available;
+      const available = response.data?.available === true;
       setLoginIdCheck({ loginId, available, message: response.message });
 
       if (!available) {
@@ -74,7 +75,7 @@ export function SignupScreen() {
       }
     } catch (error) {
       const message =
-        error instanceof AuthApiError
+        error instanceof ApiError
           ? error.message
           : "아이디 중복확인에 실패했습니다. 잠시 후 다시 시도해주세요.";
       setLoginIdCheck(null);
@@ -103,7 +104,7 @@ export function SignupScreen() {
       await signup({ ...values, name: values.name.trim() });
     } catch (error) {
       setRequestError(
-        error instanceof AuthApiError
+        error instanceof ApiError
           ? error.message
           : "회원가입에 실패했습니다. 잠시 후 다시 시도해주세요.",
       );
@@ -127,8 +128,8 @@ export function SignupScreen() {
     <AuthScreenLayout
       title={
         <>
-          <Text className="font-sans font-semibold">회원가입</Text>하고{`\n`}
-          <Text className="font-sans font-semibold">다양한 프로젝트</Text>에
+          <Text className="font-sans-semibold">회원가입</Text>하고{`\n`}
+          <Text className="font-sans-semibold">다양한 프로젝트</Text>에
           {`\n`}
           참여해보세요
         </>
@@ -225,7 +226,7 @@ export function SignupScreen() {
                   })}
                 >
                   <Text
-                    className={`font-sans text-[13px] font-semibold ${
+                    className={`font-sans-semibold text-[13px] ${
                       loginIdCheckUnavailable ? "text-gray-4" : "text-gray-6"
                     }`}
                   >
