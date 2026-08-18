@@ -1,5 +1,6 @@
-export interface CheckLoginIdData {
+export interface CheckLoginIdResponse {
   available: boolean;
+  message: string;
 }
 
 export interface SignupRequest {
@@ -12,4 +13,15 @@ export interface SignupRequest {
 export interface SigninRequest {
   login_id: string;
   password: string;
+}
+
+export interface SignupResponse {
+  success: boolean;
+  memberId: number;
+  message: string;
+}
+
+export interface SigninResponse {
+  success: boolean;
+  message: string;
 }

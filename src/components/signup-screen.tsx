@@ -4,7 +4,7 @@ import { PrimaryButton } from "@/components/primary-button";
 import { ApiError } from "@/services/api-client";
 import { checkLoginId, signin, signup } from "@/services/auth";
 import { useAuthStore } from "@/store/auth-store";
-import type { SignupRequest } from "@/types/auth";
+import type { SignupRequest, SignupResponse } from "@/types/auth";
 import {
   LOGIN_ID_MESSAGE,
   LOGIN_ID_PATTERN,
@@ -67,7 +67,7 @@ export function SignupScreen() {
 
     try {
       const response = await checkLoginId(loginId);
-      const available = response.data?.available === true;
+      const available = response.available;
       setLoginIdCheck({ loginId, available, message: response.message });
 
       if (!available) {
@@ -100,8 +100,10 @@ export function SignupScreen() {
 
     setRequestError(null);
 
+    let signupResponse: SignupResponse;
+
     try {
-      await signup({ ...values, name: values.name.trim() });
+      signupResponse = await signup({ ...values, name: values.name.trim() });
     } catch (error) {
       setRequestError(
         error instanceof ApiError
@@ -113,7 +115,7 @@ export function SignupScreen() {
 
     try {
       await signin({ login_id: values.loginId, password: values.password });
-      authenticate(values.loginId);
+      authenticate(values.loginId, signupResponse.memberId);
       router.replace("/profile-setup" as Href);
     } catch {
       const notice = encodeURIComponent(
