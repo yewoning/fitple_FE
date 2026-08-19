@@ -1,4 +1,5 @@
 import { useLocalSearchParams } from 'expo-router';
+import type { ReactNode } from 'react';
 import { ActivityIndicator, ScrollView, Text, View } from 'react-native';
 
 import { CommonLayout } from '@/components/layout';
@@ -30,19 +31,38 @@ export default function MeetingDetailScreen() {
         <Text className="font-sans text-[11px] text-gray-4">{detail.meetingDate}</Text>
         <Text className="mb-2 mt-1 font-sans-bold text-lg text-black">{detail.topic}</Text>
 
-        <InfoBlock label="주요 논의 내용" value={detail.content.mainDiscussion} />
-        <InfoBlock label="결정 사항" value={detail.content.decisions} />
-        <InfoBlock label="역할 분담 및 다음 할 일" value={detail.content.rolesAndNextTasks} />
+        <InfoBlock label="주요 논의">
+          <Text className="font-sans text-[15px] leading-[21px] text-black">
+            {detail.content.mainDiscussion}
+          </Text>
+        </InfoBlock>
+
+        <InfoBlock label="결정 사항">
+          {detail.content.decisions.map((line, index) => (
+            <Text key={index} className="font-sans text-[15px] leading-[21px] text-black">
+              {line}
+            </Text>
+          ))}
+        </InfoBlock>
+
+        <InfoBlock label="역할 및 다음 할 일">
+          {detail.content.rolesAndNextTasks.map((item) => (
+            <View key={item.name} className="flex-row gap-2">
+              <Text className="w-16 font-sans-semibold text-[15px] text-black">{item.name}</Text>
+              <Text className="flex-1 font-sans text-[15px] text-gray-6">{item.task}</Text>
+            </View>
+          ))}
+        </InfoBlock>
       </ScrollView>
     </CommonLayout>
   );
 }
 
-function InfoBlock({ label, value }: { label: string; value: string }) {
+function InfoBlock({ label, children }: { label: string; children: ReactNode }) {
   return (
-    <View className="gap-1 rounded-2xl bg-white p-4">
-      <Text className="font-sans text-[13px] font-bold text-sky-blue">{label}</Text>
-      <Text className="font-sans text-[15px] leading-[21px] text-black">{value}</Text>
+    <View className="gap-1.5 rounded-2xl bg-white p-4">
+      <Text className="font-sans-bold text-[13px] text-sky-blue">{label}</Text>
+      {children}
     </View>
   );
 }

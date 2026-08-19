@@ -58,8 +58,8 @@ export interface MeetingMinuteDetail extends MeetingMinuteSummary {
   projectName: string;
   content: {
     mainDiscussion: string;
-    decisions: string;
-    rolesAndNextTasks: string;
+    decisions: string[];
+    rolesAndNextTasks: { name: string; task: string }[];
   };
 }
 

@@ -395,6 +395,7 @@ export const mockMeetingMinutes: MeetingMinuteSummary[] = [
   { meetingMinuteId: 5, meetingNumber: 5, meetingDate: '2026.09.09 (수) 16:30', topic: '편집본 1차 검토' },
 ];
 
+// 채팅방 '회의록 생성' 미리보기 화면 스크린샷 기준
 export const mockMeetingMinuteDetail = (id: number): MeetingMinuteDetail => ({
   meetingMinuteId: id,
   meetingNumber: id,
@@ -402,8 +403,15 @@ export const mockMeetingMinuteDetail = (id: number): MeetingMinuteDetail => ({
   projectName: '교환학생 문화교류 콘텐츠 제작',
   topic: '콘텐츠 주제 및 방향 설정',
   content: {
-    mainDiscussion: '한국과 해외 대학생활의 문화 차이를 주제로 인터뷰 형식 콘텐츠를 제작하기로 함.',
-    decisions: '메인 주제: 한국-해외 대학생활 문화 차이 / 형식: 인터뷰',
-    rolesAndNextTasks: '김지수 - 전체 콘텐츠 방향 정리, 김서윤 - 유사 사례 및 인터뷰이 조사',
+    mainDiscussion: '한국과 해외 대학생활의 문화 차이를 주제로 인터뷰형 숏폼 콘텐츠를 제작하기로 했어요.',
+    decisions: ['메인 주제: 한국·해외 대학생활 문화 차이', '콘텐츠 형식: 인터뷰형 숏폼', '캠퍼스 일상 소스 영상 함께 촬영'],
+    rolesAndNextTasks: [
+      { name: '김지수', task: '전체 콘텐츠 방향 정리' },
+      { name: '김서윤', task: '유사 콘텐츠 조사 · 인터뷰이 탐색' },
+      { name: '이준호', task: '인터뷰 질문 구성' },
+      { name: '박하린', task: '인터뷰 촬영 구성' },
+      { name: '최민재', task: '캠퍼스 소스 영상 촬영' },
+      { name: 'Emily', task: '문화 차이 사례 정리' },
+    ],
   },
 });

@@ -1,3 +1,4 @@
+import type { MeetingMinuteDetail } from '@/types';
 import { apiClient, mockDelay, USE_MOCK } from './client';
 import {
   mockChatProjects,
@@ -71,7 +72,7 @@ export async function uploadChatFile(projectId: number, file: { uri: string; nam
   return data;
 }
 
-export async function createMeetingMinute(projectId: number) {
+export async function createMeetingMinute(projectId: number): Promise<MeetingMinuteDetail> {
   if (USE_MOCK) {
     return mockDelay(mockMeetingMinuteDetail(mockMeetingMinutes.length + 1));
   }
@@ -88,7 +89,10 @@ export async function getMeetingMinutes(projectId: number) {
 }
 
 // ⚠️ Notion 문서에 정확한 경로가 명시되지 않아 REST 관례로 추정 구현
-export async function getMeetingMinuteDetail(projectId: number, meetingMinuteId: number) {
+export async function getMeetingMinuteDetail(
+  projectId: number,
+  meetingMinuteId: number
+): Promise<MeetingMinuteDetail> {
   if (USE_MOCK) {
     return mockDelay(mockMeetingMinuteDetail(meetingMinuteId));
   }

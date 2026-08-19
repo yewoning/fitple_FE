@@ -1,7 +1,17 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';
-import { Alert, FlatList, KeyboardAvoidingView, Platform, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import {
+  Alert,
+  FlatList,
+  KeyboardAvoidingView,
+  Platform,
+  ScrollView,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
+} from 'react-native';
 
 import { CommonLayout } from '@/components/layout';
 import { Avatar } from '@/components/ui/avatar';
@@ -12,7 +22,7 @@ import {
   useCreateTodayTasksMutation,
   useSendMessageMutation,
 } from '@/hooks/useChat';
-import { ChatMessage } from '@/types';
+import { ChatMessage, MeetingMinuteDetail } from '@/types';
 
 function formatTime(iso: string) {
   const d = new Date(iso);
@@ -44,6 +54,7 @@ export default function ChatRoomScreen() {
   const [translateOn, setTranslateOn] = useState(true);
   const [input, setInput] = useState('');
   const [actionLoading, setActionLoading] = useState<string | null>(null);
+  const [meetingPreview, setMeetingPreview] = useState<MeetingMinuteDetail | null>(null);
 
   useEffect(() => {
     if (messageData?.messages) setMessages(messageData.messages);
@@ -88,7 +99,8 @@ export default function ChatRoomScreen() {
     try {
       if (key === 'meeting') {
         const minute = await createMeetingMinuteMutation.mutateAsync();
-        addBotMessage(`회의록을 생성했어요. "${minute.topic}" 확인 후 저장해 주세요!`);
+        addBotMessage('지금까지의 대화를 바탕으로 회의 내용을 정리했어요.\n확인 후 회의록으로 저장해 주세요!');
+        setMeetingPreview(minute);
       } else if (key === 'tasks') {
         await createTodayTasksMutation.mutateAsync();
         addBotMessage('지금까지의 대화를 바탕으로 오늘의 할 일을 정리했어요. 확인 후 바로 과제를 시작해볼까요?');
@@ -114,11 +126,12 @@ export default function ChatRoomScreen() {
       }}
       bottomNav={false}
     >
-      <KeyboardAvoidingView
-        style={{ flex: 1 }}
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-        keyboardVerticalOffset={90}
-      >
+      <View style={{ flex: 1, position: 'relative' }}>
+        <KeyboardAvoidingView
+          style={{ flex: 1 }}
+          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+          keyboardVerticalOffset={90}
+        >
         <FlatList
           ref={listRef}
           data={messages}
@@ -173,8 +186,80 @@ export default function ChatRoomScreen() {
             <Ionicons name="send" size={20} color="#4876ee" />
           </TouchableOpacity>
         </View>
-      </KeyboardAvoidingView>
+        </KeyboardAvoidingView>
+
+        {meetingPreview ? (
+          <MeetingMinutePreviewSheet minute={meetingPreview} onClose={() => setMeetingPreview(null)} />
+        ) : null}
+      </View>
     </CommonLayout>
+  );
+}
+
+// 채팅방 '회의록 생성' 미리보기 화면 스크린샷 기준: 채팅 하단에서 위로 올라오는 스크롤 가능한 바텀시트
+function MeetingMinutePreviewSheet({
+  minute,
+  onClose,
+}: {
+  minute: MeetingMinuteDetail;
+  onClose: () => void;
+}) {
+  const shortDate = minute.meetingDate.slice(2);
+
+  return (
+    <View
+      className="absolute bottom-0 left-0 right-0 overflow-hidden rounded-t-3xl bg-gray-1"
+      style={{ height: '62%', shadowColor: '#000', shadowOpacity: 0.12, shadowRadius: 12, shadowOffset: { width: 0, height: -2 }, elevation: 12 }}
+    >
+      <TouchableOpacity className="items-center py-3" onPress={onClose} activeOpacity={0.7}>
+        <View className="h-1 w-10 rounded-full bg-gray-3" />
+      </TouchableOpacity>
+
+      <ScrollView contentContainerClassName="gap-4 px-5 pb-8" showsVerticalScrollIndicator={false}>
+        <View>
+          <Text className="font-sans-bold text-xl text-black">{minute.projectName}</Text>
+          <Text className="mt-1 font-sans text-[13px] text-gray-5">
+            {shortDate} {minute.meetingNumber}차 회의
+          </Text>
+        </View>
+
+        <View className="gap-2">
+          <Text className="font-sans-bold text-[15px] text-black">회의 주제</Text>
+          <View className="rounded-2xl bg-white px-4 py-3.5">
+            <Text className="font-sans text-[15px] text-black">{minute.topic}</Text>
+          </View>
+        </View>
+
+        <View className="gap-2">
+          <Text className="font-sans-bold text-[15px] text-black">회의 내용</Text>
+          <View className="gap-4 rounded-2xl bg-white p-4">
+            <View className="gap-1">
+              <Text className="font-sans-bold text-[13px] text-black">주요 논의</Text>
+              <Text className="font-sans text-sm leading-5 text-gray-6">{minute.content.mainDiscussion}</Text>
+            </View>
+
+            <View className="gap-1">
+              <Text className="font-sans-bold text-[13px] text-black">결정 사항</Text>
+              {minute.content.decisions.map((line, index) => (
+                <Text key={index} className="font-sans text-sm leading-5 text-gray-6">
+                  {line}
+                </Text>
+              ))}
+            </View>
+
+            <View className="gap-1">
+              <Text className="font-sans-bold text-[13px] text-black">역할 및 다음 할 일</Text>
+              {minute.content.rolesAndNextTasks.map((item) => (
+                <View key={item.name} className="flex-row gap-2">
+                  <Text className="w-14 font-sans-semibold text-sm text-black">{item.name}</Text>
+                  <Text className="flex-1 font-sans text-sm text-gray-6">{item.task}</Text>
+                </View>
+              ))}
+            </View>
+          </View>
+        </View>
+      </ScrollView>
+    </View>
   );
 }
 
