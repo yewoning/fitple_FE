@@ -5,11 +5,12 @@
 //     지원자를 보는 GET /api/projects/{projectId}/applications 뿐). 백엔드팀 확인 필요.
 //
 // getMyTodayTasks는 예외적으로 memberId 없이도 연동 가능해서 실제 데이터를 씁니다. (아래 참고)
-// getScraps는 main에 이미 있는 services/project.ts의 실제 스크랩 API + status 매핑
-// (API_STATUS_TO_PROJECT_STATUS)을 그대로 재사용해서 실제 연동으로 전환했습니다. (아래 참고)
+// getScraps는 실제 스크랩 API를 씁니다. 응답 필드가 api.json 문서/다른 목록 API들과
+// 이름이 달라서(services/project.ts의 ScrapProjectItem, toScrapCardData 주석 참고)
+// 전용 변환 함수를 씁니다.
 import { getAllMyTodayTasks } from './chat';
 import { withDemoFallback } from '@/services/demo-fallback';
-import { getScraps as getScrapsFromApi, toRecruitingProjectCardData } from '@/services/project';
+import { getScraps as getScrapsFromApi, toScrapCardData } from '@/services/project';
 
 import { mockDelay } from './client';
 import { mockApplications, mockResumeVersions, mockTodayTasks } from './mockData';
@@ -21,7 +22,7 @@ export async function getScraps(memberId: number | null) {
     return { scraps: [] };
   }
   const items = await getScrapsFromApi(memberId);
-  return { scraps: items.map(toRecruitingProjectCardData) };
+  return { scraps: items.map(toScrapCardData) };
 }
 
 export async function getApplications() {
