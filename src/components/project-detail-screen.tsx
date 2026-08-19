@@ -12,6 +12,7 @@ import {
   addScrap,
   deleteProject,
   getProject,
+  getScraps,
   removeScrap,
   resolveDDay,
 } from '@/services/project';
@@ -50,6 +51,7 @@ export function ProjectDetailScreen({ projectId }: ProjectDetailScreenProps) {
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [isBookmarked, setIsBookmarked] = useState(false);
+  const [bookmarkError, setBookmarkError] = useState<string | null>(null);
 
   const [showMenu, setShowMenu] = useState(false);
   const [menuMode, setMenuMode] = useState<'actions' | 'confirmDelete'>('actions');
@@ -76,6 +78,26 @@ export function ProjectDetailScreen({ projectId }: ProjectDetailScreenProps) {
   useEffect(() => {
     loadProject();
   }, [loadProject]);
+
+  // 상세 화면엔 "내가 이미 스크랩했는지" 알려주는 필드가 따로 없어서, 진짜 상태를
+  // 스크랩 목록에서 직접 확인해 버튼 색을 맞춥니다. 이걸 안 하면 이미 스크랩한 프로젝트인데도
+  // 버튼이 항상 흰색으로 보여서, 다시 누르면 "이미 스크랩한 프로젝트입니다"로 막히기만 합니다.
+  useEffect(() => {
+    if (!project || memberId === null) return;
+    let cancelled = false;
+    getScraps(memberId)
+      .then((items) => {
+        if (!cancelled) {
+          setIsBookmarked(items.some((item) => item.projectId === project.projectId));
+        }
+      })
+      .catch(() => {
+        // 실패해도 상세 화면 자체는 그대로 보여주고, 버튼은 안 눌린 상태로 둡니다.
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [project, memberId]);
 
   useEffect(() => {
     if (!showMenu) return;
@@ -138,6 +160,7 @@ export function ProjectDetailScreen({ projectId }: ProjectDetailScreenProps) {
   async function handleBookmarkPress() {
     if (!project || memberId === null) return;
     const nextBookmarked = !isBookmarked;
+    setBookmarkError(null);
     try {
       if (nextBookmarked) {
         await addScrap(memberId, project.projectId);
@@ -147,7 +170,14 @@ export function ProjectDetailScreen({ projectId }: ProjectDetailScreenProps) {
       setIsBookmarked(nextBookmarked);
       queryClient.invalidateQueries({ queryKey: mypageKeys.scraps });
     } catch (error) {
-      setMenuError(
+      // 화면이 알고 있던 상태(isBookmarked)가 실제 서버 상태랑 어긋난 경우
+      // (예: 다른 화면/기기에서 이미 스크랩/취소함) 에러를 보여주는 대신 실제 상태로 조용히 맞춥니다.
+      if (error instanceof ApiError && error.status === 403) {
+        setIsBookmarked(nextBookmarked);
+        queryClient.invalidateQueries({ queryKey: mypageKeys.scraps });
+        return;
+      }
+      setBookmarkError(
         error instanceof ApiError
           ? error.message
           : nextBookmarked
@@ -280,6 +310,10 @@ export function ProjectDetailScreen({ projectId }: ProjectDetailScreenProps) {
                 ))}
               </View>
             </View>
+
+            {bookmarkError ? (
+              <Text className="mt-4 font-sans text-xs text-red-600">{bookmarkError}</Text>
+            ) : null}
 
             <View className="mt-6 flex-row items-center gap-2">
               <Pressable
