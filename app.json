@@ -38,7 +38,13 @@
           }
         }
       ],
-      "expo-font"
+      "expo-font",
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "프로젝트 대표 이미지와 AI 분석용 파일을 선택하기 위해 사진 라이브러리 접근 권한이 필요해요."
+        }
+      ]
     ],
     "experiments": {
       "typedRoutes": true

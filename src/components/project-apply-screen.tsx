@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { useRouter } from 'expo-router';
 import {
+  ActivityIndicator,
   Animated,
   Image,
   KeyboardAvoidingView,
@@ -14,6 +15,10 @@ import {
 } from 'react-native';
 import { CommonLayout } from '@/components/layout';
 import { PrimaryButton } from '@/components/primary-button';
+import { ApiError } from '@/services/api-client';
+import { generateApplicationIntro, submitApplication } from '@/services/application';
+import { getMyProfile } from '@/services/member';
+import { useAuthStore } from '@/store/auth-store';
 
 interface IntroTemplate {
   id: string;
@@ -66,13 +71,62 @@ const INTRO_TEMPLATES: IntroTemplate[] = [
 
 const SHEET_DISMISS_Y = 500;
 
-export function ProjectApplyScreen() {
+// 내 프로필 조회(2-1) API 연동 실패 시 표시할 폴백 이름.
+const FALLBACK_NAME = '민지';
+
+export interface ProjectApplyScreenProps {
+  projectId?: string;
+}
+
+export function ProjectApplyScreen({ projectId }: ProjectApplyScreenProps) {
   const router = useRouter();
+  const memberId = useAuthStore((state) => state.memberId);
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
   const [showTemplateModal, setShowTemplateModal] = useState(false);
   const [selectedTemplateId, setSelectedTemplateId] = useState<string | null>(null);
+  const [isGenerating, setIsGenerating] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [submitError, setSubmitError] = useState<string | null>(null);
   const sheetTranslateY = useRef(new Animated.Value(SHEET_DISMISS_Y)).current;
+
+  useEffect(() => {
+    if (memberId === null) return;
+
+    getMyProfile(memberId)
+      .then((profile) => setName(profile.name))
+      .catch(() => setName(FALLBACK_NAME));
+  }, [memberId]);
+
+  async function handleGenerateIntro() {
+    if (isGenerating) return;
+    setIsGenerating(true);
+    setSubmitError(null);
+
+    try {
+      const result = await generateApplicationIntro({ rawIntroText: description });
+      setDescription(result.introText);
+    } catch (error) {
+      setSubmitError(error instanceof ApiError ? error.message : 'AI 소개글 생성에 실패했습니다.');
+    } finally {
+      setIsGenerating(false);
+    }
+  }
+
+  async function handleSubmitApplication() {
+    if (isSubmitting || !projectId || memberId === null) return;
+    setIsSubmitting(true);
+    setSubmitError(null);
+
+    try {
+      await submitApplication(projectId, memberId, { introText: description });
+      router.back();
+    } catch (error) {
+      setSubmitError(error instanceof ApiError ? error.message : '지원서 제출에 실패했습니다.');
+    } finally {
+      setIsSubmitting(false);
+    }
+  }
 
   useEffect(() => {
     if (!showTemplateModal) return;
@@ -184,12 +238,15 @@ export function ProjectApplyScreen() {
                 accessibilityLabel="AI 생성하기"
                 accessibilityRole="button"
                 className="mt-2 flex-row items-center gap-1 self-end rounded-full bg-white-dark-sky-blue px-3 py-1.5"
-                onPress={() => {
-                  // AI 생성은 API 연동 후 구현
-                }}
-                style={({ pressed }) => ({ opacity: pressed ? 0.7 : 1 })}
+                disabled={isGenerating}
+                onPress={handleGenerateIntro}
+                style={({ pressed }) => ({ opacity: pressed || isGenerating ? 0.7 : 1 })}
               >
-                <Text className="font-sans text-xs text-gray-5">↻</Text>
+                {isGenerating ? (
+                  <ActivityIndicator color="#828797" size="small" />
+                ) : (
+                  <Text className="font-sans text-xs text-gray-5">↻</Text>
+                )}
                 <Text className="font-sans-medium text-xs text-gray-5">AI 생성하기</Text>
               </Pressable>
             </View>
@@ -225,13 +282,15 @@ export function ProjectApplyScreen() {
             </Pressable>
           </View>
 
+          {submitError ? (
+            <Text className="mx-5 mt-4 font-sans text-xs text-red-600">{submitError}</Text>
+          ) : null}
+
           <View className="mt-8 px-5">
             <PrimaryButton
               label="완료하기"
-              onPress={() => {
-                // 지원서 제출은 API 연동 후 구현
-                router.back();
-              }}
+              loading={isSubmitting}
+              onPress={handleSubmitApplication}
             />
           </View>
         </ScrollView>

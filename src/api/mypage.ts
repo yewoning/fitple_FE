@@ -1,6 +1,5 @@
-// ⚠️ 마이페이지 화면들은 대부분 "로그인한 나"의 memberId가 있어야 부를 수 있는 API인데,
-// 로그인(signin) 응답에 memberId가 안 내려와서(auth-store.ts 참고) 지금은 부를 방법이 없습니다.
-// 백엔드팀에 signin 응답에도 memberId를 추가해달라고 요청한 뒤 아래를 실제 호출로 바꿔주세요.
+// ⚠️ 아래 3개 기능은 현재 백엔드 계약이 없거나 로그인 사용자 식별 계약이 불완전해서
+// 의도적으로 mock-only 상태입니다. 계약이 확정되면 withDemoFallback으로 전환하세요.
 //   - getScraps      → GET /api/mypage/scraps?memberId=
 //   - getResumeVersions → GET /api/users/me/introductions?memberId= (AI 자소서/소개글 목록으로 추정)
 //   - getApplications → ⚠️ 스펙에 "내가 지원한 목록" 조회 API 자체가 없음(있는 건 프로젝트 주인이
@@ -8,7 +7,9 @@
 //
 // getMyTodayTasks는 예외적으로 memberId 없이도 연동 가능해서 실제 데이터를 씁니다. (아래 참고)
 import { getAllMyTodayTasks } from './chat';
-import { mockDelay, USE_REAL_API_FOR_READY_ENDPOINTS } from './client';
+import { withDemoFallback } from '@/services/demo-fallback';
+
+import { mockDelay } from './client';
 import { mockApplications, mockResumeVersions, mockScraps, mockTodayTasks } from './mockData';
 
 export async function getScraps() {
@@ -28,13 +29,8 @@ export async function getResumeVersions() {
 // chat.ts의 getAllMyTodayTasks 참고) /api/projects/my가 아직 로그인 사용자를 제대로 구분하지
 // 못하는 경우를 대비해, 실패하면 mock으로 조용히 대체합니다.
 export async function getMyTodayTasks() {
-  if (!USE_REAL_API_FOR_READY_ENDPOINTS) {
-    return mockDelay({ tasks: mockTodayTasks });
-  }
-  try {
-    const tasks = await getAllMyTodayTasks();
-    return { tasks };
-  } catch {
-    return mockDelay({ tasks: mockTodayTasks });
-  }
+  return withDemoFallback(
+    async () => ({ tasks: await getAllMyTodayTasks() }),
+    () => mockDelay({ tasks: mockTodayTasks })
+  );
 }

@@ -1,19 +1,40 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { type Href, useRouter } from 'expo-router';
 import { Image, Text, View } from 'react-native';
 import { CommonLayout, type BottomNavKey } from '@/components/layout';
 import { ProjectCarousel } from '@/components/project-carousel';
 import { ProjectGridSection } from '@/components/project-grid-section';
-import {
-  MOCK_IN_PROGRESS_PROJECTS,
-  MOCK_RECOMMENDED_PROJECTS,
-  MOCK_TODAY_TASKS,
-  MOCK_USER,
-} from '@/components/home-screen.mock';
+import { DEMO_TODAY_TASKS, getDemoUser } from '@/mocks/fixtures';
+import { getMyProfile } from '@/services/member';
+import { getMyProjects, getRecommendedProjects, toMyProjectCardData, toProjectCardData } from '@/services/project';
+import { useAuthStore } from '@/store/auth-store';
+import type { ProjectCardData } from '@/types/project';
 
 export function HomeScreen() {
   const router = useRouter();
+  const memberId = useAuthStore((state) => state.memberId);
   const [activeTab, setActiveTab] = useState<BottomNavKey>('home');
+  const [nickname, setNickname] = useState(getDemoUser().name);
+  const [recommendedProjects, setRecommendedProjects] = useState<ProjectCardData[]>([]);
+  const [inProgressProjects, setInProgressProjects] = useState<ProjectCardData[]>([]);
+
+  useEffect(() => {
+    if (memberId === null) return;
+
+    getMyProfile(memberId)
+      .then((profile) => setNickname(profile.name))
+      .catch(() => {
+        // 실패 시 폴백 닉네임 유지
+      });
+
+    getRecommendedProjects(memberId)
+      .then((items) => setRecommendedProjects(items.map(toProjectCardData)))
+      .catch(() => setRecommendedProjects([]));
+
+    getMyProjects(memberId)
+      .then((items) => setInProgressProjects(items.map(toMyProjectCardData)))
+      .catch(() => setInProgressProjects([]));
+  }, [memberId]);
 
   function handleTabPress(tab: BottomNavKey) {
     if (tab === activeTab) return;
@@ -30,6 +51,10 @@ export function HomeScreen() {
       return;
     }
     setActiveTab(tab);
+  }
+
+  function handleProjectPress(id: string) {
+    router.push(`/project/${id}` as Href);
   }
 
   return (
@@ -82,25 +107,26 @@ export function HomeScreen() {
               style={{ width: 14, height: 14 }}
             />
             <Text className="font-sans-semibold text-sm leading-5 text-black">
-              AI가 {MOCK_USER.nickname}님에게 추천하는{' '}
+              AI가 {nickname}님에게 추천하는{' '}
               <Text className="font-sans-semibold text-sm text-dark-blue">프로젝트</Text>를
               모았어요!
             </Text>
           </View>
         </View>
 
-        <ProjectCarousel projects={MOCK_RECOMMENDED_PROJECTS} />
+        <ProjectCarousel projects={recommendedProjects} onProjectPress={handleProjectPress} />
 
         <ProjectGridSection
-          title={`${MOCK_USER.nickname}님의 현재 진행중인 프로젝트`}
-          data={MOCK_IN_PROGRESS_PROJECTS}
+          title={`${nickname}님의 현재 진행중인 프로젝트`}
+          data={inProgressProjects}
           variant="progress"
           visibleRows={2}
+          onProjectPress={handleProjectPress}
         />
 
         <ProjectGridSection
           title="AI 오늘의 과제"
-          data={MOCK_TODAY_TASKS}
+          data={DEMO_TODAY_TASKS}
           variant="task"
           visibleRows={1}
         />

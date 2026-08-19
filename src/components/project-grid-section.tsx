@@ -8,6 +8,7 @@ export interface ProjectGridSectionProps {
   variant: Extract<ProjectCardVariant, 'progress' | 'task'>;
   /** 스크롤 없이 항상 보여줄 행 수 (2열 기준, 1행=2개, 2행=4개). 그 이상은 내부 스크롤. */
   visibleRows: 1 | 2;
+  onProjectPress?: (id: string) => void;
 }
 
 const ROW_HEIGHT = 84;
@@ -17,7 +18,13 @@ function getMaxHeight(rows: number) {
   return rows * ROW_HEIGHT + (rows - 1) * ROW_GAP;
 }
 
-export function ProjectGridSection({ title, data, variant, visibleRows }: ProjectGridSectionProps) {
+export function ProjectGridSection({
+  title,
+  data,
+  variant,
+  visibleRows,
+  onProjectPress,
+}: ProjectGridSectionProps) {
   return (
     <View className="mt-5 px-5">
       <Text className="mb-3 font-sans-semibold text-base text-black">{title}</Text>
@@ -28,7 +35,11 @@ export function ProjectGridSection({ title, data, variant, visibleRows }: Projec
         <View className="flex-row flex-wrap gap-x-2 gap-y-2.5 pb-1">
           {data.map((project) => (
             <View key={project.id} className="w-[48%]">
-              <ProjectCard data={project} variant={variant} />
+              <ProjectCard
+                data={project}
+                variant={variant}
+                onPress={() => onProjectPress?.(project.id)}
+              />
             </View>
           ))}
         </View>

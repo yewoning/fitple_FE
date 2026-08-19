@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { type Href, useRouter } from 'expo-router';
 import {
+  ActivityIndicator,
   Animated,
   Image,
   KeyboardAvoidingView,
@@ -14,29 +15,45 @@ import {
 } from 'react-native';
 import { CommonLayout } from '@/components/layout';
 import { PrimaryButton } from '@/components/primary-button';
-
-const MOCK_AI_RESULT = {
-  summary:
-    '외국인 교환학생과 한국인 재학생이 문화 차이를 주제로 숏폼 콘텐츠를 제작합니다. 인터뷰를 바탕으로 기획부터 촬영·편집까지 진행합니다.',
-  info: [
-    { label: '모집 인원', value: '4명' },
-    { label: '모집 역할', value: '기획 · 촬영 · 영상 편집' },
-    { label: '진행 기간', value: '~ 9월 31일' },
-    { label: '회의 일정', value: '주 1회 오프라인' },
-    { label: '모집 마감', value: '~26.08.08' },
-  ],
-};
+import { ApiError } from '@/services/api-client';
+import { createProject, generateProjectIntro, uploadProjectImage } from '@/services/project';
+import { useAuthStore } from '@/store/auth-store';
+import { useProjectInviteStore } from '@/store/project-invite-store';
+import { formatShortDateLabel } from '@/utils/dday';
+import { pickImageFile } from '@/utils/image-picker';
+import type { ProjectAiGenerateResponse, ProjectDetailInfoRow } from '@/types/project';
 
 const DISMISS_DISTANCE = 100;
 const DISMISS_VELOCITY = 0.5;
 
+function toInfoRows(result: ProjectAiGenerateResponse): ProjectDetailInfoRow[] {
+  return [
+    { label: '모집 인원', value: `${result.recruitCount}명` },
+    { label: '모집 역할', value: result.roles.join(' · ') },
+    { label: '진행 기간', value: formatShortDateLabel(result.periodEnd) },
+    { label: '회의 일정', value: result.meetingSchedule },
+    { label: '모집 마감', value: formatShortDateLabel(result.deadline) },
+  ];
+}
+
 export function ProjectCreateScreen() {
   const router = useRouter();
+  const memberId = useAuthStore((state) => state.memberId);
+
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
   const [titleError, setTitleError] = useState<string | null>(null);
   const [descriptionError, setDescriptionError] = useState<string | null>(null);
   const [showAiResult, setShowAiResult] = useState(false);
+  const [aiResult, setAiResult] = useState<ProjectAiGenerateResponse | null>(null);
+  const [isGenerating, setIsGenerating] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [formError, setFormError] = useState<string | null>(null);
+
+  const [imageUri, setImageUri] = useState<string | null>(null);
+  const [imageUrl, setImageUrl] = useState<string | null>(null);
+  const [isUploadingImage, setIsUploadingImage] = useState(false);
+
   const sheetTranslateY = useRef(new Animated.Value(800)).current;
 
   useEffect(() => {
@@ -49,21 +66,118 @@ export function ProjectCreateScreen() {
     }).start();
   }, [showAiResult, sheetTranslateY]);
 
-  function openAiResult() {
-    setShowAiResult(true);
-  }
-
-  function handleSubmit() {
+  function validateFields() {
     const trimmedTitle = title.trim();
     const trimmedDescription = description.trim();
 
     setTitleError(trimmedTitle ? null : '프로젝트 제목을 입력해주세요.');
     setDescriptionError(trimmedDescription ? null : '프로젝트 소개글을 입력해주세요.');
 
-    if (!trimmedTitle || !trimmedDescription) return;
+    return Boolean(trimmedTitle && trimmedDescription);
+  }
 
-    // 실제 생성된 프로젝트 id는 생성 API 연동 후 여기서 받아와 전달
-    router.push('/project-complete?projectId=recruit-1' as Href);
+  async function handlePickImage() {
+    const file = await pickImageFile();
+    if (!file) return;
+
+    setImageUri(file.uri);
+    setIsUploadingImage(true);
+    setFormError(null);
+
+    try {
+      const result = await uploadProjectImage(file);
+      setImageUrl(result.imageUrl);
+    } catch (error) {
+      setFormError(error instanceof ApiError ? error.message : '이미지 업로드에 실패했습니다.');
+    } finally {
+      setIsUploadingImage(false);
+    }
+  }
+
+  async function generateAndStore(file?: { uri: string; name: string; type: string }) {
+    if (!validateFields()) return null;
+
+    setIsGenerating(true);
+    setFormError(null);
+
+    try {
+      const result = await generateProjectIntro({ title, rawIntroText: description, file });
+      setAiResult(result);
+      return result;
+    } catch (error) {
+      setFormError(error instanceof ApiError ? error.message : 'AI 생성에 실패했습니다.');
+      return null;
+    } finally {
+      setIsGenerating(false);
+    }
+  }
+
+  async function handleGenerateClick() {
+    const result = await generateAndStore();
+    if (result) setShowAiResult(true);
+  }
+
+  async function handleFileAttachClick() {
+    const file = await pickImageFile();
+    if (!file) return;
+
+    const result = await generateAndStore(file);
+    if (result) setShowAiResult(true);
+  }
+
+  async function handleRegenerateClick() {
+    await generateAndStore();
+  }
+
+  async function createProjectAndNavigate(result: ProjectAiGenerateResponse) {
+    if (memberId === null) return;
+    setIsSubmitting(true);
+    setFormError(null);
+
+    try {
+      const created = await createProject(
+        {
+          title,
+          introText: result.introText,
+          recruitCount: result.recruitCount,
+          roles: result.roles,
+          periodEnd: result.periodEnd,
+          meetingSchedule: result.meetingSchedule,
+          deadline: result.deadline,
+          imageUrl,
+        },
+        memberId
+      );
+
+      useProjectInviteStore.getState().setInvite(String(created.projectId), {
+        inviteLink: created.inviteLink,
+        qrCodeUrl: created.qrCodeUrl,
+      });
+
+      router.push(
+        `/project-complete?projectId=${created.projectId}&inviteLink=${encodeURIComponent(
+          created.inviteLink
+        )}&qrCodeUrl=${encodeURIComponent(created.qrCodeUrl)}` as Href
+      );
+    } catch (error) {
+      setFormError(error instanceof ApiError ? error.message : '프로젝트 생성에 실패했습니다.');
+    } finally {
+      setIsSubmitting(false);
+    }
+  }
+
+  async function handleSubmit() {
+    if (!validateFields()) return;
+
+    const result = aiResult ?? (await generateAndStore());
+    if (!result) return;
+
+    await createProjectAndNavigate(result);
+  }
+
+  async function handleSheetSubmit() {
+    if (!aiResult) return;
+    await createProjectAndNavigate(aiResult);
   }
 
   function closeAiResult() {
@@ -97,6 +211,8 @@ export function ProjectCreateScreen() {
     })
   ).current;
 
+  const isBusy = isGenerating || isSubmitting || isUploadingImage;
+
   return (
     <CommonLayout header={{ title: '프로젝트 만들기', showBack: true }} bottomNav={false}>
       <KeyboardAvoidingView
@@ -111,21 +227,30 @@ export function ProjectCreateScreen() {
           <View className="items-center pt-6">
             <View className="relative h-28 w-28">
               <View className="h-28 w-28 items-center justify-center overflow-hidden rounded-full bg-white">
-                <Image
-                  source={require('../../assets/images/fitple-gray.png')}
-                  accessibilityLabel="기본 프로젝트 이미지"
-                  resizeMode="contain"
-                  style={{ width: 72, height: 72 }}
-                />
+                {isUploadingImage ? (
+                  <ActivityIndicator color="#828797" />
+                ) : (
+                  <Image
+                    source={
+                      imageUri
+                        ? { uri: imageUri }
+                        : require('../../assets/images/fitple-gray.png')
+                    }
+                    accessibilityLabel="기본 프로젝트 이미지"
+                    resizeMode={imageUri ? 'cover' : 'contain'}
+                    style={
+                      imageUri ? { width: 112, height: 112 } : { width: 72, height: 72 }
+                    }
+                  />
+                )}
               </View>
 
               <Pressable
                 accessibilityLabel="대표 이미지 변경"
                 accessibilityRole="button"
                 className="absolute bottom-0 right-0 h-6 w-6 items-center justify-center rounded-full bg-white"
-                onPress={() => {
-                  // 이미지 선택은 API 연동 후 구현
-                }}
+                disabled={isBusy}
+                onPress={handlePickImage}
                 style={({ pressed }) => ({ opacity: pressed ? 0.8 : 1 })}
               >
                 <View className="absolute h-[1.5px] w-2.5 rounded-full bg-gray-5" />
@@ -175,10 +300,15 @@ export function ProjectCreateScreen() {
                 accessibilityLabel="AI 생성하기"
                 accessibilityRole="button"
                 className="mt-2 flex-row items-center gap-1 self-end rounded-full bg-white-dark-sky-blue px-3 py-1.5"
-                onPress={openAiResult}
-                style={({ pressed }) => ({ opacity: pressed ? 0.7 : 1 })}
+                disabled={isBusy}
+                onPress={handleGenerateClick}
+                style={({ pressed }) => ({ opacity: pressed || isBusy ? 0.7 : 1 })}
               >
-                <Text className="font-sans text-xs text-gray-5">↻</Text>
+                {isGenerating ? (
+                  <ActivityIndicator color="#828797" size="small" />
+                ) : (
+                  <Text className="font-sans text-xs text-gray-5">↻</Text>
+                )}
                 <Text className="font-sans-medium text-xs text-gray-5">AI 생성하기</Text>
               </Pressable>
             </View>
@@ -200,10 +330,9 @@ export function ProjectCreateScreen() {
               accessibilityLabel="파일 첨부로 AI에게 분석 맡기기"
               accessibilityRole="button"
               className="flex-row items-center gap-3 rounded-2xl bg-white px-4 py-4"
-              onPress={() => {
-                // 파일 선택기는 백엔드 연동 후 구현 (파일 찾기 창만 열림)
-              }}
-              style={({ pressed }) => ({ opacity: pressed ? 0.7 : 1 })}
+              disabled={isBusy}
+              onPress={handleFileAttachClick}
+              style={({ pressed }) => ({ opacity: pressed || isBusy ? 0.7 : 1 })}
             >
               <Image
                 source={require('../../assets/icons/fi-rs-sign-in.png')}
@@ -214,20 +343,24 @@ export function ProjectCreateScreen() {
                 <Text className="font-sans-medium text-sm text-gray-6">
                   파일 첨부로 AI에게 분석을 맡겨보세요
                 </Text>
-                <Text className="mt-0.5 font-sans text-xs text-gray-4">
-                  PDF, jpg, png (최대 20MB)
-                </Text>
+                <Text className="mt-0.5 font-sans text-xs text-gray-4">이미지(jpg, png)</Text>
               </View>
             </Pressable>
           </View>
 
+          {formError ? (
+            <Text className="mx-5 mt-4 font-sans text-[12px] leading-4 text-red-600">
+              {formError}
+            </Text>
+          ) : null}
+
           <View className="mt-8 px-5">
-            <PrimaryButton label="완료하기" onPress={handleSubmit} />
+            <PrimaryButton label="완료하기" loading={isSubmitting} onPress={handleSubmit} />
           </View>
         </ScrollView>
       </KeyboardAvoidingView>
 
-      {showAiResult ? (
+      {showAiResult && aiResult ? (
         <Animated.View
           className="absolute bottom-0 left-0 right-0 rounded-t-[28px]"
           style={{ transform: [{ translateY: sheetTranslateY }] }}
@@ -254,11 +387,11 @@ export function ProjectCreateScreen() {
               <Text className="font-sans-semibold text-sm text-black">AI가 작성한 프로젝트</Text>
             </View>
             <Text className="mt-2 font-sans text-sm leading-5 text-gray-6">
-              {MOCK_AI_RESULT.summary}
+              {aiResult.introText}
             </Text>
             <View className="mt-3 border-t border-dashed border-gray-3" />
             <View className="mt-3 gap-1.5">
-              {MOCK_AI_RESULT.info.map((row) => (
+              {toInfoRows(aiResult).map((row) => (
                 <View key={row.label} className="flex-row gap-2">
                   <Text className="font-sans-medium text-xs text-gray-6">{row.label}</Text>
                   <Text className="font-sans text-xs text-gray-6">{row.value}</Text>
@@ -269,24 +402,25 @@ export function ProjectCreateScreen() {
               accessibilityLabel="AI 다시 생성"
               accessibilityRole="button"
               className="mt-3 flex-row items-center gap-1 self-end rounded-full bg-white-dark-sky-blue px-3 py-1.5"
-              onPress={() => {
-                // AI 다시 생성은 API 연동 후 구현, mock이라 동일 결과 유지
-              }}
-              style={({ pressed }) => ({ opacity: pressed ? 0.7 : 1 })}
+              disabled={isGenerating}
+              onPress={handleRegenerateClick}
+              style={({ pressed }) => ({ opacity: pressed || isGenerating ? 0.7 : 1 })}
             >
-              <Text className="font-sans text-xs text-gray-5">↻</Text>
+              {isGenerating ? (
+                <ActivityIndicator color="#828797" size="small" />
+              ) : (
+                <Text className="font-sans text-xs text-gray-5">↻</Text>
+              )}
               <Text className="font-sans-medium text-xs text-gray-5">AI 다시 생성</Text>
             </Pressable>
           </View>
 
+          {formError ? (
+            <Text className="mt-3 font-sans text-[12px] leading-4 text-red-600">{formError}</Text>
+          ) : null}
+
           <View className="mt-5">
-            <PrimaryButton
-              label="완료하기"
-              onPress={() =>
-                // 실제 생성된 프로젝트 id는 생성 API 연동 후 여기서 받아와 전달
-                router.push('/project-complete?projectId=recruit-1' as Href)
-              }
-            />
+            <PrimaryButton label="완료하기" loading={isSubmitting} onPress={handleSheetSubmit} />
           </View>
           </View>
           </View>

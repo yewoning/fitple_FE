@@ -45,8 +45,8 @@ export function LoginScreen() {
     setRequestError(null);
 
     try {
-      await signin({ login_id: values.loginId, password: values.password });
-      authenticate(values.loginId);
+      const response = await signin({ login_id: values.loginId, password: values.password });
+      authenticate(values.loginId, response.memberId);
       router.replace("/auth-complete" as Href);
     } catch (error) {
       setRequestError(
