@@ -30,6 +30,7 @@ function mapRoadmapStages(steps: any[]): RoadmapPhase[] {
 function mapTasks(data: any[]): TodayTask[] {
   return (data ?? []).map((t) => ({
     taskId: t.taskId,
+    projectId: t.projectId,
     projectName: t.projectName,
     title: t.title,
     assignee: { memberId: t.assigneeId, name: '' },
@@ -174,6 +175,23 @@ export async function getTodayTasks(projectId: number, status: 'ALL' | 'TODO' | 
   }
   const { data } = await apiClient.get(`/api/tasks/chat/rooms/${projectId}/tasks`, { params: { status } });
   return { tasks: mapTasks(data) };
+}
+
+// ✅ 실제 연동: GET /api/projects/my (내가 참여 중인 프로젝트 목록, memberId 파라미터 없음)
+// ⚠️ 이 API가 아직 로그인 세션을 구분 못 할 가능성이 있습니다(스펙에 memberId 파라미터가
+// 아예 없음). 응답이 이상하면(예: 모든 사용자의 프로젝트가 다 나옴) 백엔드팀 확인 필요.
+export async function getMyProjects(): Promise<{ projectId: number; title: string }[]> {
+  const { data } = await apiClient.get('/api/projects/my');
+  return data ?? [];
+}
+
+// ✅ 실제 연동: 마이페이지 '오늘의 과제'를 채팅방 '오늘의 과제'와 항상 같은 데이터로 보여주기 위해,
+// 내가 참여 중인 모든 프로젝트(getMyProjects)를 돌면서 각 프로젝트의 실제 과제(getTodayTasks)를
+// 그대로 모아서 합칩니다. 즉 별도의 mock이 아니라 채팅방 화면과 완전히 같은 소스를 씁니다.
+export async function getAllMyTodayTasks(): Promise<TodayTask[]> {
+  const projects = await getMyProjects();
+  const perProject = await Promise.all(projects.map((p) => getTodayTasks(p.projectId)));
+  return perProject.flatMap((r) => r.tasks);
 }
 
 // ✅ 실제 연동: GET /api/chat/rooms/{projectId}/members

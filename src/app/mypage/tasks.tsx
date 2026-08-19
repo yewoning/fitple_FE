@@ -1,9 +1,9 @@
 import { useEffect, useMemo, useState } from 'react';
-import { FlatList, Text, TouchableOpacity, View } from 'react-native';
+import { Alert, FlatList, Text, TouchableOpacity, View } from 'react-native';
 
 import { CommonLayout } from '@/components/layout';
 import { SegmentedTabs } from '@/components/ui/segmented-tabs';
-import { useMyTodayTasksQuery } from '@/hooks/useMypage';
+import { useMyTodayTasksQuery, useUpdateMyTaskStatusMutation } from '@/hooks/useMypage';
 import { TodayTask } from '@/types';
 
 type FilterKey = 'ALL' | 'TODO' | 'DONE';
@@ -12,6 +12,7 @@ type FilterKey = 'ALL' | 'TODO' | 'DONE';
 // 스크린샷 기준: 카드 없이 한 줄에 "프로젝트명 + 과제내용", 체크박스는 오른쪽, 구분선은 헤어라인.
 export default function MyTodayTasksScreen() {
   const { data } = useMyTodayTasksQuery();
+  const updateTaskStatusMutation = useUpdateMyTaskStatusMutation();
   const [tasks, setTasks] = useState<TodayTask[]>([]);
   const [filter, setFilter] = useState<FilterKey>('ALL');
 
@@ -33,9 +34,34 @@ export default function MyTodayTasksScreen() {
     [tasks]
   );
 
+  // 체크박스를 누르면 화면에서 바로 상태를 바꾸고(낙관적 업데이트), 서버에도 저장해서
+  // 채팅방 쪽 '오늘의 과제'와 항상 같은 상태를 보여주도록 합니다.
   const toggleTask = (taskId: number) => {
-    setTasks((prev) =>
-      prev.map((t) => (t.taskId === taskId ? { ...t, status: t.status === 'DONE' ? 'TODO' : 'DONE' } : t))
+    const target = tasks.find((t) => t.taskId === taskId);
+    if (!target) return;
+    if (!target.projectId) {
+      // mock 데이터 등 projectId가 없는 항목은 로컬 상태만 바꿉니다.
+      setTasks((prev) =>
+        prev.map((t) => (t.taskId === taskId ? { ...t, status: t.status === 'DONE' ? 'TODO' : 'DONE' } : t))
+      );
+      return;
+    }
+    const previousStatus = target.status;
+    const nextStatus = previousStatus === 'DONE' ? 'TODO' : 'DONE';
+    setTasks((prev) => prev.map((t) => (t.taskId === taskId ? { ...t, status: nextStatus } : t)));
+    updateTaskStatusMutation.mutate(
+      { projectId: target.projectId, taskId, status: nextStatus },
+      {
+        onError: (error: any) => {
+          setTasks((prev) =>
+            prev.map((t) => (t.taskId === taskId ? { ...t, status: previousStatus } : t))
+          );
+          Alert.alert(
+            '과제 상태 저장 실패',
+            error?.message ?? '알 수 없는 오류로 과제 상태를 저장하지 못했어요.'
+          );
+        },
+      }
     );
   };
 

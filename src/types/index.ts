@@ -67,6 +67,7 @@ export type TaskStatus = 'TODO' | 'DONE';
 
 export interface TodayTask {
   taskId: number;
+  projectId?: number;
   projectName: string;
   title: string;
   description?: string;
