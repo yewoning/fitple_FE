@@ -1,14 +1,25 @@
 import { Image, Pressable, Text, View } from 'react-native';
 import { StatusBadge } from '@/components/project-card';
-import { getDDayLabel } from '@/utils/dday';
+import { formatDDayValue, getDDayLabel } from '@/utils/dday';
 import type { RecruitingProjectCardData } from '@/types/project';
+
+const FALLBACK_ICON = require('../../assets/icons/idea.webp');
 
 export interface RecruitingProjectCardProps {
   data: RecruitingProjectCardData;
   onPress?: () => void;
 }
 
+function getDDayText(data: RecruitingProjectCardData): string | null {
+  if (typeof data.dDay === 'number') return formatDDayValue(data.dDay);
+  if (data.deadline) return getDDayLabel(data.deadline);
+  return null;
+}
+
 export function RecruitingProjectCard({ data, onPress }: RecruitingProjectCardProps) {
+  const dDayText = getDDayText(data);
+  const iconSource = data.imageUrl ? { uri: data.imageUrl } : (data.icon ?? FALLBACK_ICON);
+
   return (
     <Pressable
       accessibilityLabel={data.projectName}
@@ -18,7 +29,7 @@ export function RecruitingProjectCard({ data, onPress }: RecruitingProjectCardPr
       style={({ pressed }) => ({ opacity: pressed ? 0.7 : 1 })}
     >
       <View className="h-20 w-20 items-center justify-center rounded-2xl bg-white">
-        <Image source={data.icon} resizeMode="contain" style={{ width: 48, height: 48 }} />
+        <Image source={iconSource} resizeMode="contain" style={{ width: 48, height: 48 }} />
       </View>
 
       <View className="min-w-0 flex-1">
@@ -42,11 +53,9 @@ export function RecruitingProjectCard({ data, onPress }: RecruitingProjectCardPr
           </View>
         ) : null}
 
-        {data.deadline ? (
+        {dDayText ? (
           <View className="mt-1.5 flex-row justify-end">
-            <Text className="font-sans-semibold text-xs text-dark-blue">
-              {getDDayLabel(data.deadline)}
-            </Text>
+            <Text className="font-sans-semibold text-xs text-dark-blue">{dDayText}</Text>
           </View>
         ) : null}
       </View>

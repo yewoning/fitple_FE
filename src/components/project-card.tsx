@@ -1,12 +1,19 @@
-import { Text, View } from 'react-native';
-import { getDDayLabel } from '@/utils/dday';
+import { Pressable, Text, View } from 'react-native';
+import { formatDDayValue, getDDayLabel } from '@/utils/dday';
 import type { ProjectCardData, ProjectStatus } from '@/types/project';
+
+function getDDayText(data: ProjectCardData): string | null {
+  if (typeof data.dDay === 'number') return formatDDayValue(data.dDay);
+  if (data.deadline) return getDDayLabel(data.deadline);
+  return null;
+}
 
 export type ProjectCardVariant = 'progress' | 'task';
 
 export interface ProjectCardProps {
   data: ProjectCardData;
   variant: ProjectCardVariant;
+  onPress?: () => void;
 }
 
 const SUB_INFO_LABEL: Record<ProjectCardVariant, string> = {
@@ -46,9 +53,15 @@ export function StatusBadge({ status }: { status: ProjectStatus }) {
   );
 }
 
-export function ProjectCard({ data, variant }: ProjectCardProps) {
+export function ProjectCard({ data, variant, onPress }: ProjectCardProps) {
   return (
-    <View className="w-full rounded-2xl bg-white p-3">
+    <Pressable
+      accessibilityLabel={data.projectName}
+      accessibilityRole="button"
+      className="w-full rounded-2xl bg-white p-3"
+      onPress={onPress}
+      style={({ pressed }) => ({ opacity: pressed ? 0.7 : 1 })}
+    >
       <View className="flex-row items-center justify-between gap-1">
         <Text
           className="shrink font-sans-bold text-base leading-none text-black"
@@ -68,10 +81,8 @@ export function ProjectCard({ data, variant }: ProjectCardProps) {
           </Text>
         </View>
 
-        <Text className="font-sans-semibold text-xs text-dark-blue">
-          {getDDayLabel(data.deadline)}
-        </Text>
+        <Text className="font-sans-semibold text-xs text-dark-blue">{getDDayText(data)}</Text>
       </View>
-    </View>
+    </Pressable>
   );
 }

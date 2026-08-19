@@ -1,13 +1,33 @@
-import { useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { type Href, useRouter } from 'expo-router';
-import { Pressable, ScrollView, Text, View } from 'react-native';
+import { ActivityIndicator, Pressable, ScrollView, Text, View } from 'react-native';
 import { CommonLayout, type BottomNavKey } from '@/components/layout';
 import { RecruitingProjectCard } from '@/components/recruiting-project-card';
-import { MOCK_RECRUITING_PROJECTS } from '@/components/projects-screen.mock';
+import { getRecruitingProjects, toRecruitingProjectCardData } from '@/services/project';
+import type { RecruitingProjectCardData } from '@/types/project';
 
 export function ProjectsScreen() {
   const router = useRouter();
   const [activeTab, setActiveTab] = useState<BottomNavKey>('projects');
+  const [projects, setProjects] = useState<RecruitingProjectCardData[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+
+  const loadProjects = useCallback(async () => {
+    setIsLoading(true);
+
+    try {
+      const items = await getRecruitingProjects();
+      setProjects(items.map(toRecruitingProjectCardData));
+    } catch {
+      setProjects([]);
+    } finally {
+      setIsLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    loadProjects();
+  }, [loadProjects]);
 
   function handleTabPress(tab: BottomNavKey) {
     if (tab === activeTab) return;
@@ -43,13 +63,25 @@ export function ProjectsScreen() {
           contentContainerStyle={{ flexGrow: 1, paddingBottom: 16 }}
         >
           <View className="mt-3 flex-1 justify-between px-5">
-            {MOCK_RECRUITING_PROJECTS.map((project) => (
-              <RecruitingProjectCard
-                key={project.id}
-                data={project}
-                onPress={() => router.push(`/project/${project.id}` as Href)}
-              />
-            ))}
+            {isLoading ? (
+              <View className="items-center py-10">
+                <ActivityIndicator color="#828797" />
+              </View>
+            ) : projects.length === 0 ? (
+              <View className="items-center py-10">
+                <Text className="font-sans text-sm text-gray-5">
+                  현재 모집중인 프로젝트가 없어요
+                </Text>
+              </View>
+            ) : (
+              projects.map((project) => (
+                <RecruitingProjectCard
+                  key={project.id}
+                  data={project}
+                  onPress={() => router.push(`/project/${project.id}` as Href)}
+                />
+              ))
+            )}
           </View>
         </ScrollView>
 

@@ -1,6 +1,7 @@
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { useRouter } from 'expo-router';
 import {
+  ActivityIndicator,
   Animated,
   Image,
   KeyboardAvoidingView,
@@ -14,46 +15,96 @@ import {
 } from 'react-native';
 import { CommonLayout } from '@/components/layout';
 import { PrimaryButton } from '@/components/primary-button';
-import { MOCK_RECRUITING_PROJECTS } from '@/components/projects-screen.mock';
-
-const MOCK_AI_RESULT = {
-  summary:
-    '외국인 교환학생과 한국인 재학생이 문화 차이를 주제로 숏폼 콘텐츠를 제작합니다. 인터뷰를 바탕으로 기획부터 촬영·편집까지 진행합니다.',
-  info: [
-    { label: '모집 인원', value: '4명' },
-    { label: '모집 역할', value: '기획 · 촬영 · 영상 편집' },
-    { label: '진행 기간', value: '~ 9월 31일' },
-    { label: '회의 일정', value: '주 1회 오프라인' },
-    { label: '모집 마감', value: '~26.08.08' },
-  ],
-};
+import { ApiError } from '@/services/api-client';
+import { generateProjectIntro, getProject, updateProject, uploadProjectImage } from '@/services/project';
+import { useAuthStore } from '@/store/auth-store';
+import { formatShortDateLabel } from '@/utils/dday';
+import { pickImageFile } from '@/utils/image-picker';
+import type { ProjectAiGenerateResponse, ProjectDetailInfoRow } from '@/types/project';
 
 const DISMISS_DISTANCE = 100;
 const DISMISS_VELOCITY = 0.5;
+const FALLBACK_ICON = require('../../assets/icons/idea.webp');
+const LOAD_ERROR_MESSAGE = '프로젝트를 불러오지 못했습니다. 잠시 후 다시 시도해주세요.';
 
 export interface ProjectEditScreenProps {
   projectId?: string;
 }
 
+function toInfoRows(result: ProjectAiGenerateResponse): ProjectDetailInfoRow[] {
+  return [
+    { label: '모집 인원', value: `${result.recruitCount}명` },
+    { label: '모집 역할', value: result.roles.join(' · ') },
+    { label: '진행 기간', value: formatShortDateLabel(result.periodEnd) },
+    { label: '회의 일정', value: result.meetingSchedule },
+    { label: '모집 마감', value: formatShortDateLabel(result.deadline) },
+  ];
+}
+
+function parseRecruitCount(value: string, fallback: number): number {
+  const match = value.match(/\d+/);
+  return match ? Number(match[0]) : fallback;
+}
+
 export function ProjectEditScreen({ projectId }: ProjectEditScreenProps) {
   const router = useRouter();
-  // 수정 대상 프로젝트 조회 API 연동 전까지는 목데이터로 대체 표시
-  const project =
-    MOCK_RECRUITING_PROJECTS.find((item) => item.id === projectId) ?? MOCK_RECRUITING_PROJECTS[0];
+  const memberId = useAuthStore((state) => state.memberId);
 
-  const [title, setTitle] = useState(project.projectName);
-  const [description, setDescription] = useState(
-    `${project.projectName}에 관심 있는 팀원을 모집하고 있어요. 함께 기획부터 실행까지 즐겁게 진행해요.`
-  );
-  const [recruitCount, setRecruitCount] = useState('4명');
-  const [recruitRole, setRecruitRole] = useState(project.subInfo ?? '');
-  const [duration, setDuration] = useState('~ 9월 31일');
-  const [meetingSchedule, setMeetingSchedule] = useState('주 1회 오프라인');
-  const [deadline, setDeadline] = useState(project.deadline?.slice(2).replace(/-/g, '.') ?? '');
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const [originalRecruitCount, setOriginalRecruitCount] = useState(1);
+
+  const [title, setTitle] = useState('');
+  const [description, setDescription] = useState('');
+  const [recruitCount, setRecruitCount] = useState('');
+  const [recruitRole, setRecruitRole] = useState('');
+  const [periodEnd, setPeriodEnd] = useState('');
+  const [meetingSchedule, setMeetingSchedule] = useState('');
+  const [deadline, setDeadline] = useState('');
+  const [imageUri, setImageUri] = useState<string | null>(null);
+  const [imageUrl, setImageUrl] = useState<string | null>(null);
+  const [isUploadingImage, setIsUploadingImage] = useState(false);
+
   const [titleError, setTitleError] = useState<string | null>(null);
   const [descriptionError, setDescriptionError] = useState<string | null>(null);
+  const [formError, setFormError] = useState<string | null>(null);
+  const [isGenerating, setIsGenerating] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const [showAiResult, setShowAiResult] = useState(false);
+  const [aiResult, setAiResult] = useState<ProjectAiGenerateResponse | null>(null);
   const sheetTranslateY = useRef(new Animated.Value(800)).current;
+
+  const loadProject = useCallback(async () => {
+    if (!projectId) {
+      setLoadError(LOAD_ERROR_MESSAGE);
+      setIsLoading(false);
+      return;
+    }
+
+    setIsLoading(true);
+    setLoadError(null);
+
+    try {
+      const detail = await getProject(projectId);
+      setTitle(detail.title);
+      setDescription(detail.introText);
+      setRecruitCount(`${detail.recruitCount}명`);
+      setOriginalRecruitCount(detail.recruitCount);
+      setRecruitRole(detail.roles.join(' · '));
+      setPeriodEnd(detail.periodEnd);
+      setMeetingSchedule(detail.meetingSchedule);
+      setDeadline(detail.deadline);
+      setImageUrl(detail.imageUrl);
+    } catch (error) {
+      setLoadError(error instanceof ApiError ? error.message : LOAD_ERROR_MESSAGE);
+    } finally {
+      setIsLoading(false);
+    }
+  }, [projectId]);
+
+  useEffect(() => {
+    loadProject();
+  }, [loadProject]);
 
   useEffect(() => {
     if (!showAiResult) return;
@@ -69,19 +120,6 @@ export function ProjectEditScreen({ projectId }: ProjectEditScreenProps) {
     setShowAiResult(true);
   }
 
-  function handleSubmit() {
-    const trimmedTitle = title.trim();
-    const trimmedDescription = description.trim();
-
-    setTitleError(trimmedTitle ? null : '프로젝트 제목을 입력해주세요.');
-    setDescriptionError(trimmedDescription ? null : '프로젝트 소개글을 입력해주세요.');
-
-    if (!trimmedTitle || !trimmedDescription) return;
-
-    // 수정 내용 저장은 API 연동 후 구현
-    router.back();
-  }
-
   function closeAiResult() {
     Animated.timing(sheetTranslateY, {
       toValue: 800,
@@ -91,6 +129,106 @@ export function ProjectEditScreen({ projectId }: ProjectEditScreenProps) {
       setShowAiResult(false);
       sheetTranslateY.setValue(800);
     });
+  }
+
+  async function handlePickImage() {
+    const file = await pickImageFile();
+    if (!file) return;
+
+    setImageUri(file.uri);
+    setIsUploadingImage(true);
+    setFormError(null);
+
+    try {
+      const result = await uploadProjectImage(file);
+      setImageUrl(result.imageUrl);
+    } catch (error) {
+      setFormError(error instanceof ApiError ? error.message : '이미지 업로드에 실패했습니다.');
+    } finally {
+      setIsUploadingImage(false);
+    }
+  }
+
+  async function generateAndStore(file?: { uri: string; name: string; type: string }) {
+    setIsGenerating(true);
+    setFormError(null);
+
+    try {
+      const result = await generateProjectIntro({ title, rawIntroText: description, file });
+      setAiResult(result);
+      return result;
+    } catch (error) {
+      setFormError(error instanceof ApiError ? error.message : 'AI 생성에 실패했습니다.');
+      return null;
+    } finally {
+      setIsGenerating(false);
+    }
+  }
+
+  async function handleGenerateClick() {
+    const result = await generateAndStore();
+    if (result) openAiResult();
+  }
+
+  async function handleFileAttachClick() {
+    const file = await pickImageFile();
+    if (!file) return;
+
+    const result = await generateAndStore(file);
+    if (result) openAiResult();
+  }
+
+  async function handleRegenerateClick() {
+    await generateAndStore();
+  }
+
+  function handleApplyAiResult() {
+    if (!aiResult) return;
+    setDescription(aiResult.introText);
+    setRecruitCount(`${aiResult.recruitCount}명`);
+    setRecruitRole(aiResult.roles.join(' · '));
+    setPeriodEnd(aiResult.periodEnd);
+    setMeetingSchedule(aiResult.meetingSchedule);
+    setDeadline(aiResult.deadline);
+    closeAiResult();
+  }
+
+  async function handleSubmit() {
+    const trimmedTitle = title.trim();
+    const trimmedDescription = description.trim();
+
+    setTitleError(trimmedTitle ? null : '프로젝트 제목을 입력해주세요.');
+    setDescriptionError(trimmedDescription ? null : '프로젝트 소개글을 입력해주세요.');
+
+    if (!trimmedTitle || !trimmedDescription || memberId === null || !projectId) return;
+
+    setIsSubmitting(true);
+    setFormError(null);
+
+    try {
+      await updateProject(
+        projectId,
+        {
+          title: trimmedTitle,
+          introText: trimmedDescription,
+          recruitCount: parseRecruitCount(recruitCount, originalRecruitCount),
+          roles: recruitRole
+            .split(' · ')
+            .map((role) => role.trim())
+            .filter(Boolean),
+          periodEnd,
+          meetingSchedule,
+          deadline,
+          imageUrl,
+        },
+        memberId
+      );
+      router.back();
+    } catch (error) {
+      setFormError(error instanceof ApiError ? error.message : '수정에 실패했습니다.');
+    } finally {
+      setIsSubmitting(false);
+    }
   }
 
   const dragHandlePanResponder = useRef(
@@ -113,6 +251,32 @@ export function ProjectEditScreen({ projectId }: ProjectEditScreenProps) {
     })
   ).current;
 
+  if (isLoading) {
+    return (
+      <CommonLayout header={{ title: '게시물 수정', showBack: true }} bottomNav={false}>
+        <View className="flex-1 items-center justify-center">
+          <ActivityIndicator color="#828797" />
+        </View>
+      </CommonLayout>
+    );
+  }
+
+  if (loadError) {
+    return (
+      <CommonLayout header={{ title: '게시물 수정', showBack: true }} bottomNav={false}>
+        <View className="flex-1 items-center justify-center gap-3 px-5">
+          <Text className="text-center font-sans text-sm text-gray-5">{loadError}</Text>
+          <Pressable accessibilityRole="button" onPress={loadProject}>
+            <Text className="font-sans-medium text-sm text-sky-blue">다시 시도</Text>
+          </Pressable>
+        </View>
+      </CommonLayout>
+    );
+  }
+
+  const isBusy = isGenerating || isSubmitting || isUploadingImage;
+  const avatarSource = imageUri ? { uri: imageUri } : imageUrl ? { uri: imageUrl } : FALLBACK_ICON;
+
   return (
     <CommonLayout header={{ title: '게시물 수정', showBack: true }} bottomNav={false}>
       <KeyboardAvoidingView
@@ -127,21 +291,24 @@ export function ProjectEditScreen({ projectId }: ProjectEditScreenProps) {
           <View className="items-center pt-6">
             <View className="relative h-28 w-28">
               <View className="h-28 w-28 items-center justify-center overflow-hidden rounded-full bg-white">
-                <Image
-                  source={project.icon}
-                  accessibilityLabel="프로젝트 대표 이미지"
-                  resizeMode="contain"
-                  style={{ width: 72, height: 72 }}
-                />
+                {isUploadingImage ? (
+                  <ActivityIndicator color="#828797" />
+                ) : (
+                  <Image
+                    source={avatarSource}
+                    accessibilityLabel="프로젝트 대표 이미지"
+                    resizeMode="cover"
+                    style={{ width: 112, height: 112 }}
+                  />
+                )}
               </View>
 
               <Pressable
                 accessibilityLabel="대표 이미지 변경"
                 accessibilityRole="button"
                 className="absolute bottom-0 right-0 h-6 w-6 items-center justify-center rounded-full bg-white"
-                onPress={() => {
-                  // 이미지 선택은 API 연동 후 구현
-                }}
+                disabled={isBusy}
+                onPress={handlePickImage}
                 style={({ pressed }) => ({ opacity: pressed ? 0.8 : 1 })}
               >
                 <View className="absolute h-[1.5px] w-2.5 rounded-full bg-gray-5" />
@@ -218,10 +385,10 @@ export function ProjectEditScreen({ projectId }: ProjectEditScreenProps) {
                   <TextInput
                     accessibilityLabel="진행 기간"
                     className="flex-1 font-sans text-xs text-gray-6"
-                    onChangeText={setDuration}
-                    placeholder="예: ~ 9월 31일"
+                    onChangeText={setPeriodEnd}
+                    placeholder="예: 2026-09-30"
                     placeholderTextColor="#828797"
-                    value={duration}
+                    value={periodEnd}
                   />
                 </View>
 
@@ -243,7 +410,7 @@ export function ProjectEditScreen({ projectId }: ProjectEditScreenProps) {
                     accessibilityLabel="모집 마감"
                     className="flex-1 font-sans text-xs text-gray-6"
                     onChangeText={setDeadline}
-                    placeholder="예: 26.08.08"
+                    placeholder="예: 2026-08-08"
                     placeholderTextColor="#828797"
                     value={deadline}
                   />
@@ -254,10 +421,15 @@ export function ProjectEditScreen({ projectId }: ProjectEditScreenProps) {
                 accessibilityLabel="AI 생성하기"
                 accessibilityRole="button"
                 className="mt-3 flex-row items-center gap-1 self-end rounded-full bg-white-dark-sky-blue px-3 py-1.5"
-                onPress={openAiResult}
-                style={({ pressed }) => ({ opacity: pressed ? 0.7 : 1 })}
+                disabled={isBusy}
+                onPress={handleGenerateClick}
+                style={({ pressed }) => ({ opacity: pressed || isBusy ? 0.7 : 1 })}
               >
-                <Text className="font-sans text-xs text-gray-5">↻</Text>
+                {isGenerating ? (
+                  <ActivityIndicator color="#828797" size="small" />
+                ) : (
+                  <Text className="font-sans text-xs text-gray-5">↻</Text>
+                )}
                 <Text className="font-sans-medium text-xs text-gray-5">AI 생성하기</Text>
               </Pressable>
             </View>
@@ -279,10 +451,9 @@ export function ProjectEditScreen({ projectId }: ProjectEditScreenProps) {
               accessibilityLabel="파일 첨부로 AI에게 분석 맡기기"
               accessibilityRole="button"
               className="flex-row items-center gap-3 rounded-2xl bg-white px-4 py-4"
-              onPress={() => {
-                // 파일 선택기는 백엔드 연동 후 구현 (파일 찾기 창만 열림)
-              }}
-              style={({ pressed }) => ({ opacity: pressed ? 0.7 : 1 })}
+              disabled={isBusy}
+              onPress={handleFileAttachClick}
+              style={({ pressed }) => ({ opacity: pressed || isBusy ? 0.7 : 1 })}
             >
               <Image
                 source={require('../../assets/icons/fi-rs-sign-in.png')}
@@ -293,20 +464,24 @@ export function ProjectEditScreen({ projectId }: ProjectEditScreenProps) {
                 <Text className="font-sans-medium text-sm text-gray-6">
                   파일 첨부로 AI에게 분석을 맡겨보세요
                 </Text>
-                <Text className="mt-0.5 font-sans text-xs text-gray-4">
-                  PDF, jpg, png (최대 20MB)
-                </Text>
+                <Text className="mt-0.5 font-sans text-xs text-gray-4">이미지(jpg, png)</Text>
               </View>
             </Pressable>
           </View>
 
+          {formError ? (
+            <Text className="mx-5 mt-4 font-sans text-[12px] leading-4 text-red-600">
+              {formError}
+            </Text>
+          ) : null}
+
           <View className="mt-8 px-5">
-            <PrimaryButton label="완료하기" onPress={handleSubmit} />
+            <PrimaryButton label="완료하기" loading={isSubmitting} onPress={handleSubmit} />
           </View>
         </ScrollView>
       </KeyboardAvoidingView>
 
-      {showAiResult ? (
+      {showAiResult && aiResult ? (
         <Animated.View
           className="absolute bottom-0 left-0 right-0 rounded-t-[28px]"
           style={{ transform: [{ translateY: sheetTranslateY }] }}
@@ -333,11 +508,11 @@ export function ProjectEditScreen({ projectId }: ProjectEditScreenProps) {
               <Text className="font-sans-semibold text-sm text-black">AI가 작성한 프로젝트</Text>
             </View>
             <Text className="mt-2 font-sans text-sm leading-5 text-gray-6">
-              {MOCK_AI_RESULT.summary}
+              {aiResult.introText}
             </Text>
             <View className="mt-3 border-t border-dashed border-gray-3" />
             <View className="mt-3 gap-1.5">
-              {MOCK_AI_RESULT.info.map((row) => (
+              {toInfoRows(aiResult).map((row) => (
                 <View key={row.label} className="flex-row gap-2">
                   <Text className="font-sans-medium text-xs text-gray-6">{row.label}</Text>
                   <Text className="font-sans text-xs text-gray-6">{row.value}</Text>
@@ -348,25 +523,21 @@ export function ProjectEditScreen({ projectId }: ProjectEditScreenProps) {
               accessibilityLabel="AI 다시 생성"
               accessibilityRole="button"
               className="mt-3 flex-row items-center gap-1 self-end rounded-full bg-white-dark-sky-blue px-3 py-1.5"
-              onPress={() => {
-                // AI 다시 생성은 API 연동 후 구현, mock이라 동일 결과 유지
-              }}
-              style={({ pressed }) => ({ opacity: pressed ? 0.7 : 1 })}
+              disabled={isGenerating}
+              onPress={handleRegenerateClick}
+              style={({ pressed }) => ({ opacity: pressed || isGenerating ? 0.7 : 1 })}
             >
-              <Text className="font-sans text-xs text-gray-5">↻</Text>
+              {isGenerating ? (
+                <ActivityIndicator color="#828797" size="small" />
+              ) : (
+                <Text className="font-sans text-xs text-gray-5">↻</Text>
+              )}
               <Text className="font-sans-medium text-xs text-gray-5">AI 다시 생성</Text>
             </Pressable>
           </View>
 
           <View className="mt-5">
-            <PrimaryButton
-              label="완료하기"
-              onPress={() => {
-                // 수정 내용 저장은 API 연동 후 구현
-                closeAiResult();
-                router.back();
-              }}
-            />
+            <PrimaryButton label="완료하기" onPress={handleApplyAiResult} />
           </View>
           </View>
           </View>

@@ -1,32 +1,57 @@
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { type Href, useRouter } from 'expo-router';
-import { Animated, Image, Pressable, ScrollView, Text, View } from 'react-native';
+import { ActivityIndicator, Animated, Image, Pressable, ScrollView, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { PrimaryButton } from '@/components/primary-button';
 import { StatusBadge } from '@/components/project-card';
-import { MOCK_RECRUITING_PROJECTS } from '@/components/projects-screen.mock';
-import { getDDayLabel } from '@/utils/dday';
-import type { ProjectDetailInfoRow } from '@/types/project';
+import { ApiError } from '@/services/api-client';
+import { API_STATUS_TO_PROJECT_STATUS, addScrap, deleteProject, getProject } from '@/services/project';
+import { useAuthStore } from '@/store/auth-store';
+import { useProjectInviteStore } from '@/store/project-invite-store';
+import { formatDDayValue, formatShortDateLabel } from '@/utils/dday';
+import type { ProjectDetailInfoRow, ProjectDetailResponse } from '@/types/project';
 
 export interface ProjectDetailScreenProps {
   projectId?: string;
 }
 
 const MENU_DISMISS_Y = 400;
-
-function formatRecruitPeriodLabel(deadline: string): string {
-  return `~${deadline.slice(2).replace(/-/g, '.')}`;
-}
+const FALLBACK_ICON = require('../../assets/icons/idea.webp');
 
 export function ProjectDetailScreen({ projectId }: ProjectDetailScreenProps) {
   const router = useRouter();
-  // 상세 조회 API 연동 전까지는 목데이터로 대체 표시
-  const project =
-    MOCK_RECRUITING_PROJECTS.find((item) => item.id === projectId) ?? MOCK_RECRUITING_PROJECTS[0];
+  const memberId = useAuthStore((state) => state.memberId);
+  const cachedInvite = useProjectInviteStore((state) =>
+    projectId ? state.invites[projectId] : undefined
+  );
+
+  const [project, setProject] = useState<ProjectDetailResponse | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [isBookmarked, setIsBookmarked] = useState(false);
 
   const [showMenu, setShowMenu] = useState(false);
   const [menuMode, setMenuMode] = useState<'actions' | 'confirmDelete'>('actions');
+  const [menuError, setMenuError] = useState<string | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
   const menuTranslateY = useRef(new Animated.Value(MENU_DISMISS_Y)).current;
+
+  const loadProject = useCallback(async () => {
+    if (!projectId) return;
+    setIsLoading(true);
+
+    try {
+      const detail = await getProject(projectId);
+      setProject(detail);
+    } catch {
+      setProject(null);
+    } finally {
+      setIsLoading(false);
+    }
+  }, [projectId]);
+
+  useEffect(() => {
+    loadProject();
+  }, [loadProject]);
 
   useEffect(() => {
     if (!showMenu) return;
@@ -40,6 +65,7 @@ export function ProjectDetailScreen({ projectId }: ProjectDetailScreenProps) {
 
   function openMenu() {
     setMenuMode('actions');
+    setMenuError(null);
     setShowMenu(true);
   }
 
@@ -59,26 +85,71 @@ export function ProjectDetailScreen({ projectId }: ProjectDetailScreenProps) {
     setMenuMode('confirmDelete');
   }
 
-  function handleConfirmDelete() {
-    // 실제 삭제 API 연동은 추후 구현
-    Animated.timing(menuTranslateY, {
-      toValue: MENU_DISMISS_Y,
-      duration: 200,
-      useNativeDriver: false,
-    }).start(() => {
-      setShowMenu(false);
-      setMenuMode('actions');
-      menuTranslateY.setValue(MENU_DISMISS_Y);
-      router.back();
-    });
+  async function handleConfirmDelete() {
+    if (!project || memberId === null) return;
+    setIsDeleting(true);
+    setMenuError(null);
+
+    try {
+      await deleteProject(project.projectId, memberId);
+      Animated.timing(menuTranslateY, {
+        toValue: MENU_DISMISS_Y,
+        duration: 200,
+        useNativeDriver: false,
+      }).start(() => {
+        setShowMenu(false);
+        setMenuMode('actions');
+        menuTranslateY.setValue(MENU_DISMISS_Y);
+        router.back();
+      });
+    } catch (error) {
+      setMenuError(error instanceof ApiError ? error.message : '삭제하지 못했습니다.');
+    } finally {
+      setIsDeleting(false);
+    }
   }
 
+  async function handleBookmarkPress() {
+    if (!project || memberId === null || isBookmarked) return;
+    try {
+      await addScrap(memberId, project.projectId);
+      setIsBookmarked(true);
+    } catch (error) {
+      setMenuError(error instanceof ApiError ? error.message : '북마크하지 못했습니다.');
+    }
+  }
+
+  function handleSharePress() {
+    if (!projectId || !cachedInvite) return;
+    router.push(
+      `/project-complete?projectId=${projectId}&inviteLink=${encodeURIComponent(
+        cachedInvite.inviteLink
+      )}&qrCodeUrl=${encodeURIComponent(cachedInvite.qrCodeUrl)}` as Href
+    );
+  }
+
+  if (isLoading) {
+    return (
+      <View className="flex-1 items-center justify-center bg-gray-1">
+        <ActivityIndicator color="#828797" />
+      </View>
+    );
+  }
+
+  if (!project) {
+    return null;
+  }
+
+  const status = API_STATUS_TO_PROJECT_STATUS[project.status] ?? 'recruiting';
+  const imageSource = project.imageUrl ? { uri: project.imageUrl } : FALLBACK_ICON;
+  const isOwner = memberId !== null && project.memberId === memberId;
+
   const infoRows: ProjectDetailInfoRow[] = [
-    { label: '모집 인원', value: '4명' },
-    { label: '모집 역할', value: project.subInfo ?? '미정' },
-    { label: '진행 기간', value: '~ 9월 31일' },
-    { label: '회의 일정', value: '주 1회 오프라인' },
-    { label: '모집 마감', value: project.deadline ? formatRecruitPeriodLabel(project.deadline) : '미정' },
+    { label: '모집 인원', value: `${project.recruitCount}명` },
+    { label: '모집 역할', value: project.roles.join(' · ') || '미정' },
+    { label: '진행 기간', value: formatShortDateLabel(project.periodEnd) },
+    { label: '회의 일정', value: project.meetingSchedule },
+    { label: '모집 마감', value: formatShortDateLabel(project.deadline) },
   ];
 
   return (
@@ -99,49 +170,44 @@ export function ProjectDetailScreen({ projectId }: ProjectDetailScreenProps) {
         <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 16 }}>
           <View className="px-5">
             <View className="flex-row items-center justify-between">
-              <StatusBadge status={project.status} />
+              <StatusBadge status={status} />
 
-              <Pressable
-                accessibilityLabel="더보기"
-                accessibilityRole="button"
-                className="h-8 w-8 items-center justify-center"
-                hitSlop={4}
-                onPress={openMenu}
-              >
-                <Text className="font-sans-bold text-2xl text-dark-blue">⋮</Text>
-              </Pressable>
-            </View>
-            <Text className="mt-1.5 font-sans-bold text-xl text-black">{project.projectName}</Text>
-            <View className="mt-1.5 flex-row items-center gap-2">
-              {project.deadline ? (
-                <>
-                  <Text className="font-sans-semibold text-xs text-dark-blue">
-                    {getDDayLabel(project.deadline)}
-                  </Text>
-                  <Text className="font-sans text-xs text-gray-5">
-                    모집기간 {formatRecruitPeriodLabel(project.deadline)}
-                  </Text>
-                </>
+              {isOwner ? (
+                <Pressable
+                  accessibilityLabel="더보기"
+                  accessibilityRole="button"
+                  className="h-8 w-8 items-center justify-center"
+                  hitSlop={4}
+                  onPress={openMenu}
+                >
+                  <Text className="font-sans-bold text-2xl text-dark-blue">⋮</Text>
+                </Pressable>
               ) : null}
+            </View>
+            <Text className="mt-1.5 font-sans-bold text-xl text-black">{project.title}</Text>
+            <View className="mt-1.5 flex-row items-center gap-2">
+              <Text className="font-sans-semibold text-xs text-dark-blue">
+                {formatDDayValue(project.dDay)}
+              </Text>
+              <Text className="font-sans text-xs text-gray-5">
+                모집기간 {formatShortDateLabel(project.deadline)}
+              </Text>
             </View>
 
             <View className="mt-4 h-48 items-center justify-center overflow-hidden rounded-2xl bg-white">
-              <Image source={project.icon} resizeMode="contain" style={{ width: 88, height: 88 }} />
+              <Image source={imageSource} resizeMode="contain" style={{ width: 88, height: 88 }} />
             </View>
 
             <Text className="mt-6 font-sans-medium text-base text-gray-6">프로젝트 제목</Text>
             <View className="mt-2 h-[52px] justify-center rounded-2xl bg-white px-4">
               <Text className="font-sans text-sm text-black" numberOfLines={1}>
-                {project.projectName}
+                {project.title}
               </Text>
             </View>
 
             <Text className="mt-6 font-sans-medium text-base text-gray-6">프로젝트 소개글</Text>
             <View className="mt-2 rounded-2xl bg-white p-4">
-              <Text className="font-sans text-sm leading-5 text-gray-6">
-                {project.projectName}에 관심 있는 팀원을 모집하고 있어요. 함께 기획부터 실행까지
-                즐겁게 진행해요.
-              </Text>
+              <Text className="font-sans text-sm leading-5 text-gray-6">{project.introText}</Text>
               <View className="mt-3 border-t border-dashed border-gray-3" />
               <View className="mt-3 gap-1.5">
                 {infoRows.map((row) => (
@@ -157,16 +223,17 @@ export function ProjectDetailScreen({ projectId }: ProjectDetailScreenProps) {
               <Pressable
                 accessibilityLabel="북마크"
                 accessibilityRole="button"
-                className="h-[52px] w-[52px] items-center justify-center rounded-full bg-white"
-                onPress={() => {
-                  // 북마크 저장은 API 연동 후 구현
-                }}
+                accessibilityState={{ selected: isBookmarked }}
+                className={`h-[52px] w-[52px] items-center justify-center rounded-full ${
+                  isBookmarked ? 'bg-sky-blue' : 'bg-white'
+                }`}
+                onPress={handleBookmarkPress}
                 style={({ pressed }) => ({ opacity: pressed ? 0.7 : 1 })}
               >
                 <Image
                   source={require('../../assets/icons/bookmark.png')}
                   resizeMode="contain"
-                  style={{ width: 22, height: 22 }}
+                  style={{ width: 22, height: 22, tintColor: isBookmarked ? '#ffffff' : undefined }}
                 />
               </Pressable>
 
@@ -174,9 +241,7 @@ export function ProjectDetailScreen({ projectId }: ProjectDetailScreenProps) {
                 accessibilityLabel="공유하기"
                 accessibilityRole="button"
                 className="h-[52px] w-[52px] items-center justify-center rounded-full bg-white"
-                onPress={() => {
-                  // 공유하기는 API 연동 후 구현
-                }}
+                onPress={handleSharePress}
                 style={({ pressed }) => ({ opacity: pressed ? 0.7 : 1 })}
               >
                 <Image
@@ -189,7 +254,8 @@ export function ProjectDetailScreen({ projectId }: ProjectDetailScreenProps) {
               <View className="flex-1">
                 <PrimaryButton
                   label="지원하기"
-                  onPress={() => router.push(`/project-apply?id=${project.id}` as Href)}
+                  disabled={isOwner}
+                  onPress={() => router.push(`/project-apply?id=${project.projectId}` as Href)}
                 />
               </View>
             </View>
@@ -214,7 +280,7 @@ export function ProjectDetailScreen({ projectId }: ProjectDetailScreenProps) {
                     className="mt-4 flex-row items-center gap-2 rounded-2xl bg-white px-4 py-4"
                     onPress={() => {
                       closeMenu();
-                      router.push(`/project-edit?id=${project.id}` as Href);
+                      router.push(`/project-edit?id=${project.projectId}` as Href);
                     }}
                     style={({ pressed }) => ({ opacity: pressed ? 0.7 : 1 })}
                   >
@@ -245,6 +311,11 @@ export function ProjectDetailScreen({ projectId }: ProjectDetailScreenProps) {
                   <Text className="mt-1 text-center font-sans text-sm text-gray-5">
                     삭제한 게시물은 다시 되돌릴 수 없어요
                   </Text>
+                  {menuError ? (
+                    <Text className="mt-2 text-center font-sans text-xs text-red-600">
+                      {menuError}
+                    </Text>
+                  ) : null}
 
                   <View className="mt-5 flex-row gap-2">
                     <Pressable
@@ -258,7 +329,11 @@ export function ProjectDetailScreen({ projectId }: ProjectDetailScreenProps) {
                     </Pressable>
 
                     <View className="flex-1">
-                      <PrimaryButton label="삭제" onPress={handleConfirmDelete} />
+                      <PrimaryButton
+                        label="삭제"
+                        loading={isDeleting}
+                        onPress={handleConfirmDelete}
+                      />
                     </View>
                   </View>
                 </>

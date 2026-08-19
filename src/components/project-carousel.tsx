@@ -6,6 +6,7 @@ import type { ProjectCardData } from '@/types/project';
 
 export interface ProjectCarouselProps {
   projects: ProjectCardData[];
+  onProjectPress?: (id: string) => void;
 }
 
 const SIDE_INSET = 32;
@@ -20,7 +21,7 @@ function chunk<T>(items: T[], size: number): T[][] {
   return chunks;
 }
 
-export function ProjectCarousel({ projects }: ProjectCarouselProps) {
+export function ProjectCarousel({ projects, onProjectPress }: ProjectCarouselProps) {
   const { width } = useWindowDimensions();
   const [activeIndex, setActiveIndex] = useState(0);
 
@@ -51,7 +52,11 @@ export function ProjectCarousel({ projects }: ProjectCarouselProps) {
             style={{ width: cardWidth, marginRight: CARD_GAP }}
           >
             {page.map((project) => (
-              <RecommendedProjectRow key={project.id} data={project} />
+              <RecommendedProjectRow
+                key={project.id}
+                data={project}
+                onPress={() => onProjectPress?.(project.id)}
+              />
             ))}
           </View>
         ))}

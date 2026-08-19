@@ -24,4 +24,5 @@ export interface SignupResponse {
 export interface SigninResponse {
   success: boolean;
   message: string;
+  memberId?: number;
 }

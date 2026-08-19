@@ -69,6 +69,10 @@ assets/            앱 아이콘, 스플래시, 이미지, 폰트
 src/
 ├─ app/            Expo Router 라우트와 레이아웃
 ├─ components/     여러 화면에서 재사용하는 UI
+├─ config/         환경변수와 런타임 설정 파싱
+├─ mocks/          연결된 데모 시나리오와 인메모리 상태
+├─ services/       API 호출과 데모 폴백 경계
+├─ store/          앱 전역 상태
 └─ theme/          색상, 간격, 타이포그래피 같은 디자인 토큰
 ```
 
@@ -85,6 +89,10 @@ src/
 ## 공통 레이아웃
 
 로그인 이후 화면에서 사용하는 Header와 하단 navbar는 `src/components/layout`에 있습니다. 화면별 표시 설정, 번역 토글, 활성 탭 연결 방법은 [공통 레이아웃 사용 가이드](./docs/common-layout.md)를 확인하세요.
+
+## API와 목업 데이터
+
+백엔드 미가동 상태에서도 전체 기획 플로우를 시연할 수 있도록 API 우선·목업 폴백 구조를 사용합니다. 데이터 모드, 데모 사용자 역할, 새 API의 목업 추가 규칙은 [목업 데이터 작업 가이드](./docs/mock-data-guide.md)를 반드시 확인하세요.
 
 ## 경로 alias
 

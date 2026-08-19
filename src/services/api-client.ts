@@ -34,6 +34,20 @@ function isApiResponse(value: unknown): value is ApiResponse<unknown> {
   return typeof response.success === 'boolean' && typeof response.message === 'string';
 }
 
+/**
+ * 백엔드 에러 응답은 두 가지 형식이 섞여 있다: 기존 {success,message,data}와
+ * 전역 예외 처리기가 내려주는 {status,error,message}. 둘 다 message 필드를
+ * 공유하므로 이것만 보고 사람이 읽을 에러 메시지를 뽑아낸다.
+ */
+function extractErrorMessage(value: unknown): string | undefined {
+  if (!value || typeof value !== 'object') {
+    return undefined;
+  }
+
+  const message = (value as Record<string, unknown>).message;
+  return typeof message === 'string' ? message : undefined;
+}
+
 async function fetchJson(path: string, init?: RequestInit): Promise<{ response: Response; body: unknown }> {
   let response: Response;
 
@@ -71,12 +85,8 @@ async function fetchJson(path: string, init?: RequestInit): Promise<{ response: 
 export async function request<TData>(path: string, init?: RequestInit): Promise<ApiResponse<TData>> {
   const { response, body } = await fetchJson(path, init);
 
-  if (!isApiResponse(body)) {
-    throw new ApiError(INVALID_RESPONSE_MESSAGE, response.status);
-  }
-
-  if (!response.ok || !body.success) {
-    throw new ApiError(body.message || INVALID_RESPONSE_MESSAGE, response.status);
+  if (!response.ok || !isApiResponse(body) || !body.success) {
+    throw new ApiError(extractErrorMessage(body) || INVALID_RESPONSE_MESSAGE, response.status);
   }
 
   return body as ApiResponse<TData>;
@@ -89,8 +99,7 @@ export async function requestRaw<TData>(path: string, init?: RequestInit): Promi
   const { response, body } = await fetchJson(path, init);
 
   if (!response.ok) {
-    const message = isApiResponse(body) ? body.message : undefined;
-    throw new ApiError(message || INVALID_RESPONSE_MESSAGE, response.status);
+    throw new ApiError(extractErrorMessage(body) || INVALID_RESPONSE_MESSAGE, response.status);
   }
 
   return body as TData;
