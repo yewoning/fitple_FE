@@ -15,6 +15,7 @@ import type {
   MyProjectListItem,
   ProjectAiGenerateRequest,
   ProjectAiGenerateResponse,
+  ProjectAiGenerateResult,
   ProjectCardData,
   ProjectCreateRequest,
   ProjectCreateResponse,
@@ -44,6 +45,36 @@ export function resolveDDay(item: DDayFields): number | undefined {
 
 function appendFileToFormData(form: FormData, key: string, file: { uri: string; name: string; type: string }) {
   form.append(key, { uri: file.uri, name: file.name, type: file.type } as unknown as Blob);
+}
+
+/** AI가 일정을 못 정했을 때 쓸 기본값(오늘 기준 일수). 생성 요청에는 날짜가 반드시 필요하다. */
+const AI_FALLBACK_DEADLINE_DAYS = 14;
+const AI_FALLBACK_PERIOD_END_DAYS = 60;
+
+function toIsoDateFromToday(offsetDays: number): string {
+  const now = new Date();
+  const target = new Date(now.getFullYear(), now.getMonth(), now.getDate() + offsetDays);
+  const month = String(target.getMonth() + 1).padStart(2, '0');
+  const day = String(target.getDate()).padStart(2, '0');
+  return `${target.getFullYear()}-${month}-${day}`;
+}
+
+/**
+ * AI 생성 응답을 화면이 바로 쓸 수 있는 형태로 정규화한다.
+ *
+ * 스펙과 달리 어떤 필드든 null로 내려올 수 있다. 특히 날짜가 비면 화면이 렌더 중 터지고,
+ * 그대로 생성 요청에 실으면 필수 값이 빠진 프로젝트가 만들어진다. 날짜만 기본값으로 채우고
+ * 나머지는 빈 값을 유지해, 사용자가 결과 카드에서 '미정'을 보고 재생성할지 판단하게 한다.
+ */
+function normalizeAiGenerateResult(raw: ProjectAiGenerateResponse): ProjectAiGenerateResult {
+  return {
+    introText: raw.introText ?? '',
+    recruitCount: raw.recruitCount ?? 0,
+    roles: raw.roles ?? [],
+    periodEnd: raw.periodEnd ?? toIsoDateFromToday(AI_FALLBACK_PERIOD_END_DAYS),
+    meetingSchedule: raw.meetingSchedule ?? '',
+    deadline: raw.deadline ?? toIsoDateFromToday(AI_FALLBACK_DEADLINE_DAYS),
+  };
 }
 
 export function getRecruitingProjects() {
@@ -123,7 +154,9 @@ export function uploadProjectImage(file: { uri: string; name: string; type: stri
   );
 }
 
-export function generateProjectIntro(payload: ProjectAiGenerateRequest) {
+export async function generateProjectIntro(
+  payload: ProjectAiGenerateRequest,
+): Promise<ProjectAiGenerateResult> {
   const form = new FormData();
   form.append('title', payload.title);
   form.append('rawIntroText', payload.rawIntroText);
@@ -131,7 +164,7 @@ export function generateProjectIntro(payload: ProjectAiGenerateRequest) {
     appendFileToFormData(form, 'file', payload.file);
   }
 
-  return withDemoFallback(
+  const raw = await withDemoFallback(
     () =>
       requestRaw<ProjectAiGenerateResponse>('/api/projects/ai-generate', {
         method: 'POST',
@@ -139,6 +172,8 @@ export function generateProjectIntro(payload: ProjectAiGenerateRequest) {
       }),
     () => generateDemoProjectIntro(payload),
   );
+
+  return normalizeAiGenerateResult(raw);
 }
 
 export function getProjectMembers(projectId: string | number) {

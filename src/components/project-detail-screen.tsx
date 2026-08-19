@@ -28,8 +28,9 @@ const LOAD_ERROR_MESSAGE = '프로젝트를 불러오지 못했습니다. 잠시
 /**
  * 서버가 D-day를 안 줘도 상세 화면은 deadline을 갖고 있으므로 직접 계산해 보여준다.
  * (예전에는 D-day가 없으면 'D+NaN'이 그대로 노출됐다.)
+ * 마감일마저 비어 있으면 표시할 게 없으므로 아무것도 그리지 않는다.
  */
-function getDetailDDayText(project: ProjectDetailResponse): string {
+function getDetailDDayText(project: ProjectDetailResponse): string | null {
   const dDay = resolveDDay(project);
   return typeof dDay === 'number' ? formatDDayValue(dDay) : getDDayLabel(project.deadline);
 }

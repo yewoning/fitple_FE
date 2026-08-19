@@ -76,9 +76,10 @@ export interface ProjectDetailResponse extends DDayFields {
   introText: string;
   recruitCount: number;
   roles: string[];
-  periodEnd: string;
+  // AI 생성 결과가 그대로 저장되므로 생성 당시 값이 비었으면 조회에서도 null로 내려온다.
+  periodEnd: string | null;
   meetingSchedule: string;
-  deadline: string;
+  deadline: string | null;
   status: string;
   imageUrl: string | null;
   memberId: number;
@@ -94,7 +95,24 @@ export interface ProjectAiGenerateRequest {
   file?: { uri: string; name: string; type: string };
 }
 
+/**
+ * 서버 원본 응답.
+ *
+ * 스펙에는 모두 필수로 적혀 있지만, AI가 값을 뽑아내지 못하면 실제로는 null이 내려온다
+ * (특히 periodEnd·deadline). 화면이 이 타입을 직접 쓰면 날짜 포맷 단계에서 터지므로
+ * 서비스에서 `ProjectAiGenerateResult`로 정규화한 뒤 넘긴다.
+ */
 export interface ProjectAiGenerateResponse {
+  introText: string | null;
+  recruitCount: number | null;
+  roles: string[] | null;
+  periodEnd: string | null;
+  meetingSchedule: string | null;
+  deadline: string | null;
+}
+
+/** 화면이 쓰는 형태. 빈 값은 서비스에서 채워지므로 null이 없다. */
+export interface ProjectAiGenerateResult {
   introText: string;
   recruitCount: number;
   roles: string[];
