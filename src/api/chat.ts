@@ -42,11 +42,25 @@ function mapTasks(data: any[]): TodayTask[] {
 }
 
 // ✅ 실제 연동: GET /api/chat/projects?memberId= (memberId 필수 파라미터라서 안 보내면 500 남)
+// ⚠️ 실제 응답은 { projects: [{ projectId, projectIconUrl, title }] } 뿐이라 ChatProjectSummary가
+// 화면에 쓰는 projectName/memberCount/lastMessage/lastMessageAt/unreadCount가 없습니다.
+// (예전엔 projectName 자리에 title 값이 아예 안 들어가서, 채팅 목록에 이름 없는 빈 아바타만
+// 보였습니다.) memberCount/lastMessage/lastMessageAt/unreadCount는 백엔드가 아직 안 주는
+// 정보라 임시로 빈 값을 넣어둡니다 — API가 보강되면 여기서 실제 값을 채우면 됩니다.
 export async function getChatProjects(memberId: number | null) {
   return withDemoFallback(
     async () => {
       const { data } = await apiClient.get('/api/chat/projects', { params: { memberId } });
-      return data;
+      const projects = (data?.projects ?? []).map((p: any) => ({
+        projectId: p.projectId,
+        projectName: p.title,
+        projectIconUrl: p.projectIconUrl,
+        memberCount: p.memberCount ?? 0,
+        lastMessage: p.lastMessage ?? '',
+        lastMessageAt: p.lastMessageAt ?? '',
+        unreadCount: p.unreadCount ?? 0,
+      }));
+      return { projects };
     },
     () => mockDelay({ projects: mockChatProjects })
   );
