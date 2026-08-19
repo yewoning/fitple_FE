@@ -1,30 +1,33 @@
 import { useState } from 'react';
 import * as Clipboard from 'expo-clipboard';
 import { type Href, useRouter } from 'expo-router';
-import { Pressable, Text, View } from 'react-native';
-import QRCode from 'react-native-qrcode-svg';
+import { Image, Pressable, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { ScreenBackground } from '@/components/screen-background';
 
-const MOCK_INVITE_URL = 'fitple.app/invite/7K3M9P';
-const DEFAULT_PROJECT_ID = 'recruit-1';
-
 export interface ProjectCompleteScreenProps {
   projectId?: string;
+  inviteLink?: string;
+  qrCodeUrl?: string;
 }
 
-export function ProjectCompleteScreen({ projectId }: ProjectCompleteScreenProps) {
+export function ProjectCompleteScreen({ projectId, inviteLink, qrCodeUrl }: ProjectCompleteScreenProps) {
   const router = useRouter();
   const [copied, setCopied] = useState(false);
 
   async function handleCopy() {
-    await Clipboard.setStringAsync(MOCK_INVITE_URL);
+    if (!inviteLink) return;
+    await Clipboard.setStringAsync(inviteLink);
     setCopied(true);
     setTimeout(() => setCopied(false), 1500);
   }
 
   function handleClose() {
-    router.replace(`/project/${projectId ?? DEFAULT_PROJECT_ID}` as Href);
+    if (projectId) {
+      router.replace(`/project/${projectId}` as Href);
+      return;
+    }
+    router.replace('/projects' as Href);
   }
 
   return (
@@ -45,27 +48,20 @@ export function ProjectCompleteScreen({ projectId }: ProjectCompleteScreenProps)
         </View>
 
         <View className="flex-1 items-center px-10 pt-8">
-          <Text className="text-center font-sans-bold text-2xl leading-8 text-black">
-            프로젝트 준비가{`\n`}모두 완료되었어요!
-          </Text>
-
-          <Text className="mt-3 text-center font-sans text-sm leading-5 text-gray-6">
-            이제 함께할 팀원을 초대해 볼까요?{`\n`}QR코드나 링크를 공유해 주세요.
-          </Text>
-
-          <View className="mt-10 items-center justify-center rounded-2xl bg-white p-4">
-            <QRCode
-              value={`https://${MOCK_INVITE_URL}`}
-              size={168}
-              backgroundColor="white"
-              color="black"
-            />
+          <View className="mt-16 h-[168px] w-[168px] items-center justify-center rounded-2xl bg-white p-4">
+            {qrCodeUrl ? (
+              <Image
+                source={{ uri: qrCodeUrl }}
+                resizeMode="contain"
+                style={{ width: '100%', height: '100%' }}
+              />
+            ) : null}
           </View>
 
           <View className="mt-10 w-full max-w-80 flex-row items-center gap-2">
             <View className="h-[52px] flex-1 justify-center rounded-full bg-white px-5">
               <Text className="font-sans text-sm text-gray-6" numberOfLines={1}>
-                {MOCK_INVITE_URL}
+                {inviteLink ?? ''}
               </Text>
             </View>
 

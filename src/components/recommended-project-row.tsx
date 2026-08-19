@@ -1,15 +1,28 @@
-import { Text, View } from 'react-native';
+import { Pressable, Text, View } from 'react-native';
 import { StatusBadge } from '@/components/project-card';
-import { getDDayLabel } from '@/utils/dday';
+import { formatDDayValue, getDDayLabel } from '@/utils/dday';
 import type { ProjectCardData } from '@/types/project';
 
 export interface RecommendedProjectRowProps {
   data: ProjectCardData;
+  onPress?: () => void;
 }
 
-export function RecommendedProjectRow({ data }: RecommendedProjectRowProps) {
+function getDDayText(data: ProjectCardData): string | null {
+  if (typeof data.dDay === 'number') return formatDDayValue(data.dDay);
+  if (data.deadline) return getDDayLabel(data.deadline);
+  return null;
+}
+
+export function RecommendedProjectRow({ data, onPress }: RecommendedProjectRowProps) {
   return (
-    <View className="flex-row items-center justify-between gap-2 py-1.5">
+    <Pressable
+      accessibilityLabel={data.projectName}
+      accessibilityRole="button"
+      className="flex-row items-center justify-between gap-2 py-1.5"
+      onPress={onPress}
+      style={({ pressed }) => ({ opacity: pressed ? 0.7 : 1 })}
+    >
       <View className="min-w-0 flex-1">
         <View className="flex-row items-center gap-1">
           <Text
@@ -30,9 +43,7 @@ export function RecommendedProjectRow({ data }: RecommendedProjectRowProps) {
         </View>
       </View>
 
-      <Text className="font-sans-semibold text-xs text-dark-blue">
-        {getDDayLabel(data.deadline)}
-      </Text>
-    </View>
+      <Text className="font-sans-semibold text-xs text-dark-blue">{getDDayText(data)}</Text>
+    </Pressable>
   );
 }

@@ -1,7 +1,9 @@
 import type { ProjectCardData } from '@/types/project';
 
-export const MOCK_USER = { nickname: '민지' } as const;
+// 회원 프로필 조회(2-1) 실패 시 표시할 폴백 닉네임.
+export const FALLBACK_NICKNAME = '민지';
 
+// API 연동 실패 시 표시할 폴백 데이터.
 export const MOCK_RECOMMENDED_PROJECTS: ProjectCardData[] = [
   {
     id: 'rec-1',
@@ -26,24 +28,10 @@ export const MOCK_RECOMMENDED_PROJECTS: ProjectCardData[] = [
   },
   {
     id: 'rec-4',
-    projectName: '동네 운동 크루 앱',
-    status: 'recruit-closed',
-    subInfo: '프론트엔드 개발자',
-    deadline: '2026-08-17',
-  },
-  {
-    id: 'rec-5',
     projectName: '캠퍼스 굿즈 공동구매 서비스',
     status: 'recruiting',
     subInfo: '기획·마케팅',
     deadline: '2026-08-28',
-  },
-  {
-    id: 'rec-6',
-    projectName: '동아리 홍보 영상 제작',
-    status: 'recruiting',
-    subInfo: '영상 편집자',
-    deadline: '2026-09-02',
   },
 ];
 
@@ -53,21 +41,14 @@ export const MOCK_IN_PROGRESS_PROJECTS: ProjectCardData[] = [
     projectName: '핏플 온보딩 리디자인',
     status: 'in-progress',
     subInfo: '홈 화면 UI 퍼블리싱',
-    deadline: '2026-08-20',
+    deadline: '2026-08-27',
   },
   {
     id: 'prog-2',
     projectName: '중고 서적 공유 서비스',
     status: 'in-progress',
     subInfo: '회원가입 API 연동',
-    deadline: '2026-08-19',
-  },
-  {
-    id: 'prog-3',
-    projectName: '동아리 출석 관리 시스템',
-    status: 'completed',
-    subInfo: '출석 통계 대시보드',
-    deadline: '2026-08-10',
+    deadline: '2026-08-26',
   },
 ];
 
