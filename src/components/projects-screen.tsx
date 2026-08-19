@@ -1,14 +1,23 @@
-import { useCallback, useEffect, useState } from 'react';
-import { type Href, useRouter } from 'expo-router';
-import { ActivityIndicator, Pressable, ScrollView, Text, View } from 'react-native';
-import { CommonLayout, type BottomNavKey } from '@/components/layout';
-import { RecruitingProjectCard } from '@/components/recruiting-project-card';
-import { getRecruitingProjects, toRecruitingProjectCardData } from '@/services/project';
-import type { RecruitingProjectCardData } from '@/types/project';
+import { CommonLayout, type BottomNavKey } from "@/components/layout";
+import { RecruitingProjectCard } from "@/components/recruiting-project-card";
+import {
+  getRecruitingProjects,
+  toRecruitingProjectCardData,
+} from "@/services/project";
+import type { RecruitingProjectCardData } from "@/types/project";
+import { useRouter, type Href } from "expo-router";
+import { useCallback, useEffect, useState } from "react";
+import {
+  ActivityIndicator,
+  Pressable,
+  ScrollView,
+  Text,
+  View,
+} from "react-native";
 
 export function ProjectsScreen() {
   const router = useRouter();
-  const [activeTab, setActiveTab] = useState<BottomNavKey>('projects');
+  const [activeTab, setActiveTab] = useState<BottomNavKey>("projects");
   const [projects, setProjects] = useState<RecruitingProjectCardData[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
@@ -31,23 +40,26 @@ export function ProjectsScreen() {
 
   function handleTabPress(tab: BottomNavKey) {
     if (tab === activeTab) return;
-    if (tab === 'home') {
-      router.push('/home' as Href);
+    if (tab === "home") {
+      router.push("/home" as Href);
       return;
     }
-    if (tab === 'chat') {
-      router.push('/chat' as Href);
+    if (tab === "chat") {
+      router.push("/chat" as Href);
       return;
     }
-    if (tab === 'mypage') {
-      router.push('/mypage' as Href);
+    if (tab === "mypage") {
+      router.push("/mypage" as Href);
       return;
     }
     setActiveTab(tab);
   }
 
   return (
-    <CommonLayout header={false} bottomNav={{ activeTab, onTabPress: handleTabPress }}>
+    <CommonLayout
+      header={false}
+      bottomNav={{ activeTab, onTabPress: handleTabPress }}
+    >
       <View className="min-h-0 flex-1">
         <View className="h-14 justify-center bg-white px-5">
           <Text
@@ -62,7 +74,7 @@ export function ProjectsScreen() {
           showsVerticalScrollIndicator={false}
           contentContainerStyle={{ flexGrow: 1, paddingBottom: 16 }}
         >
-          <View className="mt-3 flex-1 justify-between px-5">
+          <View className="mt-3 flex-1 flex-start px-5">
             {isLoading ? (
               <View className="items-center py-10">
                 <ActivityIndicator color="#828797" />
@@ -89,7 +101,7 @@ export function ProjectsScreen() {
           accessibilityLabel="새 프로젝트 만들기"
           accessibilityRole="button"
           className="absolute bottom-6 right-5 h-11 w-11 items-center justify-center rounded-full bg-sky-blue shadow-lg shadow-gray-5-overlay"
-          onPress={() => router.push('/project-create' as Href)}
+          onPress={() => router.push("/project-create" as Href)}
           style={({ pressed }) => ({ opacity: pressed ? 0.8 : 1 })}
         >
           <View className="absolute h-[2px] w-4 rounded-full bg-white" />

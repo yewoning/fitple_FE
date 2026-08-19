@@ -13,8 +13,10 @@ import {
   TextInput,
   View,
 } from 'react-native';
+import { useQueryClient } from '@tanstack/react-query';
 import { CommonLayout } from '@/components/layout';
 import { PrimaryButton } from '@/components/primary-button';
+import { mypageKeys } from '@/hooks/useMypage';
 import { ApiError } from '@/services/api-client';
 import { generateApplicationIntro, submitApplication } from '@/services/application';
 import { getMyProfile } from '@/services/member';
@@ -82,6 +84,7 @@ export interface ProjectApplyScreenProps {
 
 export function ProjectApplyScreen({ projectId, projectTitle }: ProjectApplyScreenProps) {
   const router = useRouter();
+  const queryClient = useQueryClient();
   const memberId = useAuthStore((state) => state.memberId);
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
@@ -123,6 +126,9 @@ export function ProjectApplyScreen({ projectId, projectTitle }: ProjectApplyScre
 
     try {
       const result = await submitApplication(projectId, memberId, { introText: description });
+
+      // 지원 현황 목록과 프로젝트 상세의 '이미 지원함' 판정이 같은 캐시를 보므로 함께 갱신된다.
+      await queryClient.invalidateQueries({ queryKey: mypageKeys.applications });
 
       if (result.isTeamComplete) {
         const assignments = await assignProjectRoles(projectId);

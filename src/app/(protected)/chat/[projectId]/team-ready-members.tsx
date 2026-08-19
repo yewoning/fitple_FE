@@ -79,12 +79,16 @@ export default function TeamReadyMembersScreen() {
           ItemSeparatorComponent={() => <View className="h-px bg-gray-2" />}
           renderItem={({ item }) => (
             <View className="flex-row items-start gap-3 py-3">
-              <Image
-                source={require('../../../../../assets/icons/people.png')}
-                accessibilityLabel={item.name}
-                resizeMode="contain"
-                style={{ width: 44, height: 44 }}
-              />
+              {/* people.png 원본이 15x20이라 확대하면 깨진다. 원형 배경으로 크기를 만들고
+                  이미지는 원본 크기 그대로 둔다. */}
+              <View className="h-11 w-11 items-center justify-center rounded-full bg-gray-2">
+                <Image
+                  source={require('../../../../../assets/icons/people.png')}
+                  accessibilityLabel={item.name}
+                  resizeMode="contain"
+                  style={{ width: 15, height: 20 }}
+                />
+              </View>
               <View className="flex-1">
                 <Text className="font-sans-semibold text-[15px] text-black">{item.name}</Text>
                 <Text className="mt-0.5 font-sans text-[13px] text-sky-blue">담당 {item.role}</Text>

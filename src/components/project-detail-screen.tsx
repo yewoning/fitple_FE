@@ -1,3 +1,4 @@
+import { Ionicons } from '@expo/vector-icons';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { type Href, useRouter } from 'expo-router';
 import { ActivityIndicator, Animated, Image, Pressable, ScrollView, Text, View } from 'react-native';
@@ -5,7 +6,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useQueryClient } from '@tanstack/react-query';
 import { PrimaryButton } from '@/components/primary-button';
 import { StatusBadge } from '@/components/project-card';
-import { mypageKeys } from '@/hooks/useMypage';
+import { mypageKeys, useApplicationsQuery } from '@/hooks/useMypage';
 import { ApiError } from '@/services/api-client';
 import {
   API_STATUS_TO_PROJECT_STATUS,
@@ -47,10 +48,13 @@ export function ProjectDetailScreen({ projectId }: ProjectDetailScreenProps) {
     projectId ? state.invites[projectId] : undefined
   );
 
+  const { data: myApplications } = useApplicationsQuery(memberId);
+
   const [project, setProject] = useState<ProjectDetailResponse | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [isBookmarked, setIsBookmarked] = useState(false);
+  const [isBookmarkUpdating, setIsBookmarkUpdating] = useState(false);
   const [bookmarkError, setBookmarkError] = useState<string | null>(null);
 
   const [showMenu, setShowMenu] = useState(false);
@@ -63,10 +67,12 @@ export function ProjectDetailScreen({ projectId }: ProjectDetailScreenProps) {
     if (!projectId) return;
     setIsLoading(true);
     setLoadError(null);
+    setIsBookmarked(false);
 
     try {
       const detail = await getProject(projectId);
       setProject(detail);
+
     } catch (error) {
       setProject(null);
       setLoadError(error instanceof ApiError ? error.message : LOAD_ERROR_MESSAGE);
@@ -158,32 +164,35 @@ export function ProjectDetailScreen({ projectId }: ProjectDetailScreenProps) {
   // 스크랩 버튼을 다시 누르면 취소도 되도록 토글로 동작합니다. 성공하면 마이페이지 >
   // 스크랩 화면 캐시도 같이 갱신해서, 스크랩하자마자/취소하자마자 거기에 바로 반영됩니다.
   async function handleBookmarkPress() {
-    if (!project || memberId === null) return;
-    const nextBookmarked = !isBookmarked;
+    if (!project || memberId === null || isBookmarkUpdating) return;
+    const previousIsBookmarked = isBookmarked;
+    const nextIsBookmarked = !previousIsBookmarked;
+    setIsBookmarkUpdating(true);
     setBookmarkError(null);
+    setIsBookmarked(nextIsBookmarked);
+
     try {
-      if (nextBookmarked) {
+      if (nextIsBookmarked) {
         await addScrap(memberId, project.projectId);
       } else {
         await removeScrap(memberId, project.projectId);
       }
-      setIsBookmarked(nextBookmarked);
       queryClient.invalidateQueries({ queryKey: mypageKeys.scraps });
     } catch (error) {
-      // 화면이 알고 있던 상태(isBookmarked)가 실제 서버 상태랑 어긋난 경우
-      // (예: 다른 화면/기기에서 이미 스크랩/취소함) 에러를 보여주는 대신 실제 상태로 조용히 맞춥니다.
       if (error instanceof ApiError && error.status === 403) {
-        setIsBookmarked(nextBookmarked);
         queryClient.invalidateQueries({ queryKey: mypageKeys.scraps });
         return;
       }
+      setIsBookmarked(previousIsBookmarked);
       setBookmarkError(
         error instanceof ApiError
           ? error.message
-          : nextBookmarked
+          : nextIsBookmarked
             ? '스크랩하지 못했습니다.'
             : '스크랩 취소하지 못했습니다.'
       );
+    } finally {
+      setIsBookmarkUpdating(false);
     }
   }
 
@@ -235,6 +244,11 @@ export function ProjectDetailScreen({ projectId }: ProjectDetailScreenProps) {
   const status = API_STATUS_TO_PROJECT_STATUS[project.status] ?? 'recruiting';
   const imageSource = project.imageUrl ? { uri: project.imageUrl } : FALLBACK_ICON;
   const isOwner = memberId !== null && project.memberId === memberId;
+  // 백엔드가 409로 막는 조건이 PENDING/ACCEPTED라, 거절된 건은 재지원을 허용한다.
+  const hasApplied = (myApplications ?? []).some(
+    (application) =>
+      application.projectId === project.projectId && application.status !== 'REJECTED',
+  );
 
   const infoRows: ProjectDetailInfoRow[] = [
     { label: '모집 인원', value: `${project.recruitCount}명` },
@@ -284,6 +298,11 @@ export function ProjectDetailScreen({ projectId }: ProjectDetailScreenProps) {
               <Text className="font-sans text-xs text-gray-5">
                 모집기간 {formatShortDateLabel(project.deadline)}
               </Text>
+              {project.memberName ? (
+                <Text className="ml-auto font-sans text-xs text-gray-5" numberOfLines={1}>
+                  {project.memberName}
+                </Text>
+              ) : null}
             </View>
 
             <View className="mt-4 h-48 items-center justify-center overflow-hidden rounded-2xl bg-white">
@@ -319,15 +338,16 @@ export function ProjectDetailScreen({ projectId }: ProjectDetailScreenProps) {
               <Pressable
                 accessibilityLabel="북마크"
                 accessibilityRole="button"
-                accessibilityState={{ selected: isBookmarked }}
+                accessibilityState={{ disabled: isBookmarkUpdating, selected: isBookmarked }}
                 className="h-[52px] w-[52px] items-center justify-center rounded-full bg-white"
+                disabled={isBookmarkUpdating}
                 onPress={handleBookmarkPress}
                 style={({ pressed }) => ({ opacity: pressed ? 0.7 : 1 })}
               >
-                <Image
-                  source={require('../../assets/icons/bookmark.png')}
-                  resizeMode="contain"
-                  style={{ width: 22, height: 22, tintColor: isBookmarked ? '#4876ee' : undefined }}
+                <Ionicons
+                  name={isBookmarked ? 'bookmark' : 'bookmark-outline'}
+                  size={22}
+                  color={isBookmarked ? '#0169ff' : '#484d5a'}
                 />
               </Pressable>
 
@@ -338,25 +358,33 @@ export function ProjectDetailScreen({ projectId }: ProjectDetailScreenProps) {
                 onPress={handleSharePress}
                 style={({ pressed }) => ({ opacity: pressed ? 0.7 : 1 })}
               >
-                <Image
-                  source={require('../../assets/icons/share.png')}
-                  resizeMode="contain"
-                  style={{ width: 22, height: 22 }}
-                />
+                <Ionicons name="share-outline" size={22} color="#484d5a" />
               </Pressable>
 
               <View className="flex-1">
-                <PrimaryButton
-                  label="지원하기"
-                  disabled={isOwner}
-                  onPress={() =>
-                    router.push(
-                      `/project-apply?id=${project.projectId}&title=${encodeURIComponent(
-                        project.title
-                      )}` as Href
-                    )
-                  }
-                />
+                {/* 게시자는 자기 프로젝트에 지원할 수 없으므로, 그 자리를 지원자 관리 진입점으로 쓴다. */}
+                {isOwner ? (
+                  <PrimaryButton
+                    label="지원자 관리"
+                    variant="accent"
+                    onPress={() =>
+                      router.push(`/project-applicants?id=${project.projectId}` as Href)
+                    }
+                  />
+                ) : hasApplied ? (
+                  <PrimaryButton label="이미 지원함" disabled onPress={() => {}} />
+                ) : (
+                  <PrimaryButton
+                    label="지원하기"
+                    onPress={() =>
+                      router.push(
+                        `/project-apply?id=${project.projectId}&title=${encodeURIComponent(
+                          project.title
+                        )}` as Href
+                      )
+                    }
+                  />
+                )}
               </View>
             </View>
           </View>
