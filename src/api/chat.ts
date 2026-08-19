@@ -41,10 +41,11 @@ function mapTasks(data: any[]): TodayTask[] {
   }));
 }
 
-export async function getChatProjects() {
+// ✅ 실제 연동: GET /api/chat/projects?memberId= (memberId 필수 파라미터라서 안 보내면 500 남)
+export async function getChatProjects(memberId: number | null) {
   return withDemoFallback(
     async () => {
-      const { data } = await apiClient.get('/api/chat/projects');
+      const { data } = await apiClient.get('/api/chat/projects', { params: { memberId } });
       return data;
     },
     () => mockDelay({ projects: mockChatProjects })
