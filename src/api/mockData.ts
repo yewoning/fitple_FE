@@ -1,5 +1,4 @@
 import {
-  ApplicationItem,
   ChatMessage,
   ChatProjectSummary,
   ChatRoom,
@@ -73,64 +72,6 @@ export const mockScraps: ScrapItem[] = [
     subInfo: '발표 · PPT · 디자인',
     deadline: '2026-08-17',
     icon: require('../../assets/icons/megaphone.webp'),
-  },
-];
-
-// 지원 현황 화면 스크린샷 기준
-export const mockApplications: ApplicationItem[] = [
-  {
-    id: 'apply-1',
-    projectName: '반려동물 임시보호 매칭 서비스',
-    status: 'recruiting',
-    subInfo: '서비스 기획',
-    deadline: '2026-09-10',
-    icon: require('../../assets/icons/handshake.webp'),
-    selected: true,
-  },
-  {
-    id: 'apply-2',
-    projectName: '대학생 금융습관 개선 챌린지',
-    status: 'recruiting',
-    subInfo: '운영 · 기획',
-    deadline: '2026-09-04',
-    icon: require('../../assets/icons/money.webp'),
-    selected: true,
-  },
-  {
-    id: 'apply-3',
-    projectName: '시각장애인 이동 보조 서비스',
-    status: 'recruiting',
-    subInfo: 'UX 리서치',
-    deadline: '2026-09-03',
-    icon: require('../../assets/icons/idea.webp'),
-    selected: true,
-  },
-  {
-    id: 'apply-4',
-    projectName: '로컬 농산물 직거래 서비스',
-    status: 'recruit-closed',
-    subInfo: '서비스 기획',
-    deadline: '2026-08-17',
-    icon: require('../../assets/icons/money.webp'),
-    selected: false,
-  },
-  {
-    id: 'apply-5',
-    projectName: '학생 자취방 교환 플랫폼',
-    status: 'recruit-closed',
-    subInfo: 'UX/UI',
-    deadline: '2026-08-17',
-    icon: require('../../assets/icons/shop.webp'),
-    selected: false,
-  },
-  {
-    id: 'apply-6',
-    projectName: '공공자전거 이용 개선 프로젝트',
-    status: 'recruit-closed',
-    subInfo: '사용자 조사',
-    deadline: '2026-08-17',
-    icon: require('../../assets/icons/megaphone.webp'),
-    selected: false,
   },
 ];
 

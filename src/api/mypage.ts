@@ -1,9 +1,8 @@
-// ⚠️ 아래 2개 기능은 현재 백엔드 계약이 없거나 응답 형태가 화면과 안 맞아서 의도적으로
-// mock-only 상태입니다. 계약이 확정되면 withDemoFallback으로 전환하세요.
+// ⚠️ 이력서 버전은 아직 화면과 맞는 백엔드 계약이 없어 mock-only 상태입니다.
+// 계약이 확정되면 withDemoFallback으로 전환하세요.
 //   - getResumeVersions → GET /api/users/me/introductions?memberId= (AI 자소서/소개글 목록으로 추정)
-//   - getApplications → ⚠️ 스펙에 "내가 지원한 목록" 조회 API 자체가 없음(있는 건 프로젝트 주인이
-//     지원자를 보는 GET /api/projects/{projectId}/applications 뿐). 백엔드팀 확인 필요.
 //
+// 지원 현황은 GET /api/applications/my가 생겨서 services/application.ts로 옮겨 실제 연동했습니다.
 // getMyTodayTasks는 예외적으로 memberId 없이도 연동 가능해서 실제 데이터를 씁니다. (아래 참고)
 // getScraps는 실제 스크랩 API를 씁니다. 응답 필드가 api.json 문서/다른 목록 API들과
 // 이름이 달라서(services/project.ts의 ScrapProjectItem, toScrapCardData 주석 참고)
@@ -13,7 +12,7 @@ import { withDemoFallback } from '@/services/demo-fallback';
 import { getScraps as getScrapsFromApi, toScrapCardData } from '@/services/project';
 
 import { mockDelay } from './client';
-import { mockApplications, mockResumeVersions, mockTodayTasks } from './mockData';
+import { mockResumeVersions, mockTodayTasks } from './mockData';
 
 // ✅ 실제 연동: GET /api/mypage/scraps?memberId=
 export async function getScraps(memberId: number | null) {
@@ -23,10 +22,6 @@ export async function getScraps(memberId: number | null) {
   }
   const items = await getScrapsFromApi(memberId);
   return { scraps: items.map(toScrapCardData) };
-}
-
-export async function getApplications() {
-  return mockDelay({ applications: mockApplications });
 }
 
 export async function getResumeVersions() {

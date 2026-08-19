@@ -89,10 +89,8 @@ export interface RoadmapPhase {
 }
 
 // 스크랩 / 지원 현황 화면은 프로젝트팀이 이미 만든 RecruitingProjectCard를 그대로 재사용합니다.
+// (지원 현황은 GET /api/applications/my 연동 후 types/application.ts의 MyApplicationItem을 씁니다.)
 export type ScrapItem = RecruitingProjectCardData;
-export interface ApplicationItem extends RecruitingProjectCardData {
-  selected: boolean;
-}
 export interface ResumeVersion {
   id: number;
   title: string;
