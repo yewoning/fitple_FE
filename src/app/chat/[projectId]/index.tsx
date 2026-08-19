@@ -20,6 +20,7 @@ import {
   useChatRoomQuery,
   useCreateMeetingMinuteMutation,
   useCreateTodayTasksMutation,
+  useGenerateRoadmapMutation,
   useSendMessageMutation,
 } from '@/hooks/useChat';
 import { ChatMessage, MeetingMinuteDetail } from '@/types';
@@ -49,6 +50,7 @@ export default function ChatRoomScreen() {
   const sendMessageMutation = useSendMessageMutation(projectId);
   const createMeetingMinuteMutation = useCreateMeetingMinuteMutation(projectId);
   const createTodayTasksMutation = useCreateTodayTasksMutation(projectId);
+  const generateRoadmapMutation = useGenerateRoadmapMutation(projectId);
 
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [translateOn, setTranslateOn] = useState(true);
@@ -105,7 +107,8 @@ export default function ChatRoomScreen() {
         await createTodayTasksMutation.mutateAsync();
         addBotMessage('지금까지의 대화를 바탕으로 오늘의 할 일을 정리했어요. 확인 후 바로 과제를 시작해볼까요?');
       } else {
-        addBotMessage('프로젝트 로드맵을 업데이트했어요.');
+        await generateRoadmapMutation.mutateAsync();
+        addBotMessage('지금까지의 대화를 바탕으로 프로젝트 로드맵을 업데이트했어요.');
       }
     } catch (e: any) {
       Alert.alert('오류', e.message);

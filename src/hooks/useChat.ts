@@ -4,6 +4,7 @@ import {
   createMeetingMinute,
   createTodayTasks,
   enterChatRoom,
+  generateRoadmap,
   getChatProjects,
   getMeetingMinuteDetail,
   getMeetingMinutes,
@@ -109,5 +110,15 @@ export function useRoadmapQuery(projectId: number) {
   return useQuery({
     queryKey: chatKeys.roadmap(projectId),
     queryFn: () => getRoadmap(projectId),
+  });
+}
+
+export function useGenerateRoadmapMutation(projectId: number) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: () => generateRoadmap(projectId),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: chatKeys.roadmap(projectId) });
+    },
   });
 }
