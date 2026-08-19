@@ -86,6 +86,11 @@ export interface ProjectDetailResponse extends DDayFields {
   memberName: string;
 }
 
+/** GET /api/mypage/scraps?memberId= — 상세 화면의 북마크 여부 확인에 필요한 최소 응답 */
+export interface ScrapListResponse {
+  projects: Pick<ProjectDetailResponse, 'projectId'>[];
+}
+
 /**
  * POST /api/projects/ai-generate (multipart/form-data)
  */

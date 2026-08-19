@@ -1,4 +1,4 @@
-import { requestRaw } from '@/services/api-client';
+import { requestRaw, requestVoid } from '@/services/api-client';
 import { demoStore, getDemoProjectApplications } from '@/mocks/demo-store';
 import { withDemoFallback } from '@/services/demo-fallback';
 import type {
@@ -65,7 +65,7 @@ export function acceptApplication(
 ) {
   return withDemoFallback(
     () =>
-      requestRaw<undefined>(
+      requestVoid(
         `/api/projects/${projectId}/applications/${applicationId}/accept?memberId=${memberId}`,
         { method: 'POST' },
       ),
@@ -80,7 +80,7 @@ export function rejectApplication(
 ) {
   return withDemoFallback(
     () =>
-      requestRaw<undefined>(
+      requestVoid(
         `/api/projects/${projectId}/applications/${applicationId}/reject?memberId=${memberId}`,
         { method: 'POST' },
       ),

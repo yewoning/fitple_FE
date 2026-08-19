@@ -48,7 +48,7 @@ function extractErrorMessage(value: unknown): string | undefined {
   return typeof message === 'string' ? message : undefined;
 }
 
-async function fetchJson(path: string, init?: RequestInit): Promise<{ response: Response; body: unknown }> {
+async function fetchResponse(path: string, init?: RequestInit): Promise<Response> {
   let response: Response;
 
   try {
@@ -67,6 +67,12 @@ async function fetchJson(path: string, init?: RequestInit): Promise<{ response: 
 
     throw new ApiError(NETWORK_ERROR_MESSAGE);
   }
+
+  return response;
+}
+
+async function fetchJson(path: string, init?: RequestInit): Promise<{ response: Response; body: unknown }> {
+  const response = await fetchResponse(path, init);
 
   let body: unknown;
 
@@ -103,4 +109,26 @@ export async function requestRaw<TData>(path: string, init?: RequestInit): Promi
   }
 
   return body as TData;
+}
+
+/**
+ * For successful endpoints that intentionally return no response body.
+ *
+ * `requestRaw` validates JSON, so it must not be used for empty 200/204 responses.
+ */
+export async function requestVoid(path: string, init?: RequestInit): Promise<void> {
+  const response = await fetchResponse(path, init);
+
+  if (response.ok) {
+    return;
+  }
+
+  let body: unknown;
+  try {
+    body = await response.json();
+  } catch {
+    throw new ApiError(INVALID_RESPONSE_MESSAGE, response.status);
+  }
+
+  throw new ApiError(extractErrorMessage(body) || INVALID_RESPONSE_MESSAGE, response.status);
 }

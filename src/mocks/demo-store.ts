@@ -42,6 +42,7 @@ interface DemoState {
   updateProject: (projectId: number, payload: ProjectUpdateRequest) => void;
   deleteProject: (projectId: number) => void;
   addScrap: (projectId: number) => void;
+  removeScrap: (projectId: number) => void;
   submitApplication: (
     projectId: number,
     memberId: number,
@@ -128,6 +129,11 @@ export const demoStore = createStore<DemoState>((set, get) => ({
       scrappedProjectIds: state.scrappedProjectIds.includes(projectId)
         ? state.scrappedProjectIds
         : [...state.scrappedProjectIds, projectId],
+    }));
+  },
+  removeScrap: (projectId) => {
+    set((state) => ({
+      scrappedProjectIds: state.scrappedProjectIds.filter((id) => id !== projectId),
     }));
   },
   submitApplication: (projectId, memberId, payload) => {

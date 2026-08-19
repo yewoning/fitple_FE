@@ -10,7 +10,9 @@ import {
   API_STATUS_TO_PROJECT_STATUS,
   addScrap,
   deleteProject,
+  getScrappedProjectIds,
   getProject,
+  removeScrap,
   resolveDDay,
 } from '@/services/project';
 import { useAuthStore } from '@/store/auth-store';
@@ -47,6 +49,7 @@ export function ProjectDetailScreen({ projectId }: ProjectDetailScreenProps) {
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [isBookmarked, setIsBookmarked] = useState(false);
+  const [isBookmarkUpdating, setIsBookmarkUpdating] = useState(false);
 
   const [showMenu, setShowMenu] = useState(false);
   const [menuMode, setMenuMode] = useState<'actions' | 'confirmDelete'>('actions');
@@ -58,17 +61,28 @@ export function ProjectDetailScreen({ projectId }: ProjectDetailScreenProps) {
     if (!projectId) return;
     setIsLoading(true);
     setLoadError(null);
+    setIsBookmarked(false);
 
     try {
       const detail = await getProject(projectId);
       setProject(detail);
+
+      if (memberId !== null) {
+        try {
+          const scrappedProjectIds = await getScrappedProjectIds(memberId);
+          setIsBookmarked(scrappedProjectIds.includes(detail.projectId));
+        } catch {
+          // 북마크 조회 실패는 프로젝트 상세 조회를 막지 않는다.
+          setIsBookmarked(false);
+        }
+      }
     } catch (error) {
       setProject(null);
       setLoadError(error instanceof ApiError ? error.message : LOAD_ERROR_MESSAGE);
     } finally {
       setIsLoading(false);
     }
-  }, [projectId]);
+  }, [memberId, projectId]);
 
   useEffect(() => {
     loadProject();
@@ -131,12 +145,23 @@ export function ProjectDetailScreen({ projectId }: ProjectDetailScreenProps) {
   }
 
   async function handleBookmarkPress() {
-    if (!project || memberId === null || isBookmarked) return;
+    if (!project || memberId === null || isBookmarkUpdating) return;
+    const previousIsBookmarked = isBookmarked;
+    const nextIsBookmarked = !previousIsBookmarked;
+    setIsBookmarkUpdating(true);
+    setIsBookmarked(nextIsBookmarked);
+
     try {
-      await addScrap(memberId, project.projectId);
-      setIsBookmarked(true);
+      if (nextIsBookmarked) {
+        await addScrap(memberId, project.projectId);
+      } else {
+        await removeScrap(memberId, project.projectId);
+      }
     } catch (error) {
+      setIsBookmarked(previousIsBookmarked);
       setMenuError(error instanceof ApiError ? error.message : '북마크하지 못했습니다.');
+    } finally {
+      setIsBookmarkUpdating(false);
     }
   }
 
@@ -268,8 +293,9 @@ export function ProjectDetailScreen({ projectId }: ProjectDetailScreenProps) {
               <Pressable
                 accessibilityLabel="북마크"
                 accessibilityRole="button"
-                accessibilityState={{ selected: isBookmarked }}
+                accessibilityState={{ disabled: isBookmarkUpdating, selected: isBookmarked }}
                 className="h-[52px] w-[52px] items-center justify-center rounded-full bg-white"
+                disabled={isBookmarkUpdating}
                 onPress={handleBookmarkPress}
                 style={({ pressed }) => ({ opacity: pressed ? 0.7 : 1 })}
               >

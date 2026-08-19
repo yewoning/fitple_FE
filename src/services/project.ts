@@ -1,4 +1,4 @@
-import { requestRaw } from '@/services/api-client';
+import { requestRaw, requestVoid } from '@/services/api-client';
 import {
   demoStore,
   generateDemoProjectIntro,
@@ -21,6 +21,7 @@ import type {
   ProjectCreateResponse,
   ProjectDetailResponse,
   ProjectMemberListItem,
+  ScrapListResponse,
   ProjectStatus,
   ProjectUpdateRequest,
   RecruitingProjectCardData,
@@ -121,7 +122,7 @@ export function createProject(payload: ProjectCreateRequest, memberId: number) {
 export function updateProject(projectId: string | number, payload: ProjectUpdateRequest, memberId: number) {
   return withDemoFallback(
     () =>
-      requestRaw<undefined>(`/api/projects/${projectId}?memberId=${memberId}`, {
+      requestVoid(`/api/projects/${projectId}?memberId=${memberId}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload),
@@ -133,7 +134,7 @@ export function updateProject(projectId: string | number, payload: ProjectUpdate
 export function deleteProject(projectId: string | number, memberId: number) {
   return withDemoFallback(
     () =>
-      requestRaw<undefined>(`/api/projects/${projectId}?memberId=${memberId}`, {
+      requestVoid(`/api/projects/${projectId}?memberId=${memberId}`, {
         method: 'DELETE',
       }),
     () => demoStore.getState().deleteProject(Number(projectId)),
@@ -196,12 +197,36 @@ export function assignProjectRoles(projectId: string | number) {
 export function addScrap(memberId: number, projectId: string | number) {
   return withDemoFallback(
     () =>
-      requestRaw<undefined>(
+      requestVoid(
         `/api/mypage/scraps?memberId=${memberId}&projectId=${projectId}`,
         { method: 'POST' },
       ),
     () => demoStore.getState().addScrap(Number(projectId)),
   );
+}
+
+export function removeScrap(memberId: number, projectId: string | number) {
+  return withDemoFallback(
+    () =>
+      requestVoid(
+        `/api/mypage/scraps?memberId=${memberId}&projectId=${projectId}`,
+        { method: 'DELETE' },
+      ),
+    () => demoStore.getState().removeScrap(Number(projectId)),
+  );
+}
+
+export async function getScrappedProjectIds(memberId: number): Promise<number[]> {
+  const scraps = await withDemoFallback(
+    () => requestRaw<ScrapListResponse>(`/api/mypage/scraps?memberId=${memberId}`),
+    () => ({
+      projects: demoStore
+        .getState()
+        .scrappedProjectIds.map((projectId) => ({ projectId })),
+    }),
+  );
+
+  return scraps.projects.map((project) => project.projectId);
 }
 
 export function toRecruitingProjectCardData(item: RecruitingProjectListItem): RecruitingProjectCardData {
