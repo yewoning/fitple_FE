@@ -1,6 +1,6 @@
 import { useLocalSearchParams } from 'expo-router';
 import { useEffect, useMemo, useState } from 'react';
-import { FlatList, Text, TouchableOpacity, View } from 'react-native';
+import { Alert, FlatList, Text, TouchableOpacity, View } from 'react-native';
 
 import { CommonLayout } from '@/components/layout';
 import { SegmentedTabs } from '@/components/ui/segmented-tabs';
@@ -39,12 +39,28 @@ export default function ProjectTodayTasksScreen() {
 
   // 체크박스를 누르면 화면에서 바로 상태를 바꾸고(낙관적 업데이트), 동시에 서버에도 저장해서
   // 화면을 나갔다 들어와도 상태가 유지되도록 합니다.
+  // 서버 저장이 실패하면(백엔드 주소 문제 등) 원래 상태로 되돌리고 에러를 바로 보여줘서
+  // 원인을 알 수 있게 합니다.
   const toggleTask = (taskId: number) => {
     const target = tasks.find((t) => t.taskId === taskId);
     if (!target) return;
-    const nextStatus = target.status === 'DONE' ? 'TODO' : 'DONE';
+    const previousStatus = target.status;
+    const nextStatus = previousStatus === 'DONE' ? 'TODO' : 'DONE';
     setTasks((prev) => prev.map((t) => (t.taskId === taskId ? { ...t, status: nextStatus } : t)));
-    updateTaskStatusMutation.mutate({ taskId, status: nextStatus });
+    updateTaskStatusMutation.mutate(
+      { taskId, status: nextStatus },
+      {
+        onError: (error: any) => {
+          setTasks((prev) =>
+            prev.map((t) => (t.taskId === taskId ? { ...t, status: previousStatus } : t))
+          );
+          Alert.alert(
+            '과제 상태 저장 실패',
+            error?.message ?? '알 수 없는 오류로 과제 상태를 저장하지 못했어요.'
+          );
+        },
+      }
+    );
   };
 
   return (
