@@ -44,6 +44,13 @@ export default function MyPageScreen() {
     setActiveTab(tab);
   }
 
+  // 편집 화면은 draft가 있으면 그 값을 우선 쓴다. 온보딩 중 만들어졌다가 버려진 draft가
+  // 남아 있으면 저장된 내 프로필 대신 그 초안이 뜨므로, 마이페이지에서 들어갈 때는 항상 비운다.
+  const handleEditProfilePress = () => {
+    clearProfileEditDraft();
+    router.push('/profile-edit' as Href);
+  };
+
   const handlePress = (key: (typeof MENU)[number]['key']) => {
     if (key === 'logout') {
       clearAuthentication();
@@ -67,10 +74,16 @@ export default function MyPageScreen() {
         <ScrollView contentContainerClassName="gap-5 px-5 pb-8">
           <View className="items-center gap-2 py-4">
             <Avatar uri={profile?.profileImageUrl} size={80} />
-            <View className="flex-row items-center gap-1">
+            <TouchableOpacity
+              accessibilityLabel="프로필 편집"
+              accessibilityRole="button"
+              className="flex-row items-center gap-1"
+              activeOpacity={0.7}
+              onPress={handleEditProfilePress}
+            >
               <Text className="font-sans-bold text-lg text-black">{profile?.name ?? ''}님</Text>
               <Ionicons name="chevron-forward" size={16} color="#828797" />
-            </View>
+            </TouchableOpacity>
           </View>
 
           <View className="overflow-hidden rounded-2xl bg-white">
