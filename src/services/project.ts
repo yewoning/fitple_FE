@@ -34,6 +34,28 @@ export const API_STATUS_TO_PROJECT_STATUS: Record<string, ProjectStatus> = {
   CLOSED: 'completed',
 };
 
+// StatusBadge(components/project-card.tsx)가 쓰는 한글 라벨과 맞춰뒀다. "모집중"은 스크랩 API의 실제
+// 응답에서 확인됐고, 나머지는 그 라벨 세트를 그대로 따른다는 가정이라 백엔드팀 확인이 필요하다.
+const STATUS_LABEL_TO_PROJECT_STATUS: Record<string, ProjectStatus> = {
+  모집중: 'recruiting',
+  모집완료: 'recruit-closed',
+  진행중: 'in-progress',
+  완료: 'completed',
+};
+
+/**
+ * 응답의 프로젝트 상태를 읽는 유일한 경로.
+ *
+ * 같은 '상태'를 엔드포인트마다 다른 형태로 준다. 목록·상세는 "RECRUITING" 같은 영문 enum이지만
+ * 스크랩 목록은 "모집중" 같은 한글 라벨이다(아래 ScrapProjectItem 주석 참고). 한쪽 표기만 아는 채로
+ * 비교하면 '진행중'인 프로젝트를 모집중으로 오인해 화면에서 사라진다. 두 표기를 모두 받아들이고,
+ * 모르는 값이면 undefined를 돌려 호출부가 기본값을 정하게 한다.
+ */
+export function normalizeProjectStatus(raw: string | null | undefined): ProjectStatus | undefined {
+  if (!raw) return undefined;
+  return API_STATUS_TO_PROJECT_STATUS[raw] ?? STATUS_LABEL_TO_PROJECT_STATUS[raw];
+}
+
 /**
  * 응답의 D-day를 읽는 유일한 경로. 스펙은 소문자 `dday`지만 과도기 동안 `dDay`도 받는다.
  * 값이 없으면 undefined를 돌려주고, 표시는 호출부가 결정한다(NaN을 만들지 않기 위함).
@@ -234,15 +256,6 @@ export interface ScrapProjectItem {
   projectIconUrl: string | null;
 }
 
-// StatusBadge(components/project-card.tsx)가 쓰는 한글 라벨과 맞춰뒀다. "모집중"은 실제
-// 응답에서 확인됐고, 나머지는 그 라벨 세트를 그대로 따른다는 가정이라 백엔드팀 확인이 필요하다.
-const RECRUIT_STATUS_LABEL_TO_PROJECT_STATUS: Record<string, ProjectStatus> = {
-  모집중: 'recruiting',
-  모집완료: 'recruit-closed',
-  진행중: 'in-progress',
-  완료: 'completed',
-};
-
 /** "D-14" / "D-DAY" / "D+3" → 14 / 0 / -3. 형식이 다르면 undefined. */
 function parseDDayLabel(label: string | null | undefined): number | undefined {
   if (!label) return undefined;
@@ -257,7 +270,7 @@ export function toScrapCardData(item: ScrapProjectItem): RecruitingProjectCardDa
   return {
     id: String(item.projectId),
     projectName: item.title,
-    status: RECRUIT_STATUS_LABEL_TO_PROJECT_STATUS[item.recruitStatus] ?? 'recruiting',
+    status: normalizeProjectStatus(item.recruitStatus) ?? 'recruiting',
     subInfo: (item.recruitRoles ?? []).join(' · '),
     dDay: parseDDayLabel(item.dDay),
     imageUrl: item.projectIconUrl,
@@ -280,7 +293,7 @@ export function toRecruitingProjectCardData(item: RecruitingProjectListItem): Re
   return {
     id: String(item.projectId),
     projectName: item.title,
-    status: API_STATUS_TO_PROJECT_STATUS[item.status] ?? 'recruiting',
+    status: normalizeProjectStatus(item.status) ?? 'recruiting',
     subInfo: item.roles.join(' · '),
     dDay: resolveDDay(item),
     imageUrl: item.imageUrl,
@@ -292,7 +305,7 @@ export function toProjectCardData(item: RecruitingProjectListItem): ProjectCardD
     id: String(item.projectId),
     linkId: String(item.projectId),
     projectName: item.title,
-    status: API_STATUS_TO_PROJECT_STATUS[item.status] ?? 'recruiting',
+    status: normalizeProjectStatus(item.status) ?? 'recruiting',
     subInfo: item.roles.join(' · '),
     dDay: resolveDDay(item),
   };
@@ -303,8 +316,30 @@ export function toMyProjectCardData(item: MyProjectListItem): ProjectCardData {
     id: String(item.projectId),
     linkId: String(item.projectId),
     projectName: item.title,
-    status: API_STATUS_TO_PROJECT_STATUS[item.status] ?? 'recruiting',
+    status: normalizeProjectStatus(item.status) ?? 'recruiting',
     subInfo: item.myRole ?? '역할 미배정',
     dDay: resolveDDay(item),
   };
+}
+
+/** D-day 오름차순. 값이 없는 항목은 뒤로 보낸다(앞에서 잘라도 급한 것이 남게). */
+function sortByDDayAsc(projects: ProjectCardData[]): ProjectCardData[] {
+  return [...projects].sort((a, b) => (a.dDay ?? Number.POSITIVE_INFINITY) - (b.dDay ?? Number.POSITIVE_INFINITY));
+}
+
+/**
+ * 홈 '현재 진행중인 프로젝트' 섹션에 보여줄 목록.
+ *
+ * /api/projects/my는 모집중·완료까지 포함한 '내 프로젝트 전체'를 준다. 그런데 서버에는 아직
+ * RECRUITING → IN_PROGRESS 전이가 없어서(2026-08 기준 전체 프로젝트가 RECRUITING,
+ * /api/projects?status=IN_PROGRESS는 빈 배열) 상태로만 거르면 이 섹션이 항상 비어버린다.
+ * 그동안은 '완료'가 아닌 내 프로젝트를 대신 보여주고, 서버가 전이를 구현하는 순간
+ * 위 필터가 이겨서 이 폴백은 저절로 꺼진다.
+ */
+export async function getMyOngoingProjects(memberId: number): Promise<ProjectCardData[]> {
+  const projects = (await getMyProjects(memberId)).map(toMyProjectCardData);
+  const inProgress = projects.filter((project) => project.status === 'in-progress');
+  const notCompleted = projects.filter((project) => project.status !== 'completed');
+
+  return sortByDDayAsc(inProgress.length > 0 ? inProgress : notCompleted);
 }
