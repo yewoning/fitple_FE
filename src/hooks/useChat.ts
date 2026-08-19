@@ -17,7 +17,12 @@ import {
   translateChatMessage,
   updateTaskStatus,
 } from '@/api/chat';
-import type { ChatMessage, ChatProjectSummary, TaskStatus } from '@/types';
+import type {
+  ChatMessage,
+  ChatProjectSummary,
+  MeetingMinuteDraft,
+  TaskStatus,
+} from '@/types';
 import { useAuthStore } from '@/store/auth-store';
 
 export const chatKeys = {
@@ -210,10 +215,12 @@ export function useSendMessageMutation(roomId: number | null | undefined, member
   });
 }
 
+// 초안(title/content)은 화면에서 만들어 넘깁니다 — 백엔드에 회의록 AI 생성 API가 없어서
+// 이 API는 넘겨준 내용을 그대로 저장하기만 합니다. (api/chat.ts의 createMeetingMinute 주석 참고)
 export function useCreateMeetingMinuteMutation(projectId: number) {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: () => createMeetingMinute(projectId),
+    mutationFn: (draft: MeetingMinuteDraft) => createMeetingMinute(projectId, draft),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: chatKeys.meetingMinutes(projectId) });
     },
@@ -230,10 +237,12 @@ export function useCreateTodayTasksMutation(projectId: number) {
   });
 }
 
+// enabled 가드가 없으면 라우트 파라미터가 파싱되기 전 NaN으로 요청이 나갑니다.
 export function useMeetingMinutesQuery(projectId: number) {
   return useQuery({
     queryKey: chatKeys.meetingMinutes(projectId),
     queryFn: () => getMeetingMinutes(projectId),
+    enabled: Number.isFinite(projectId),
   });
 }
 
@@ -241,6 +250,7 @@ export function useMeetingMinuteDetailQuery(projectId: number, meetingMinuteId: 
   return useQuery({
     queryKey: chatKeys.meetingMinuteDetail(projectId, meetingMinuteId),
     queryFn: () => getMeetingMinuteDetail(projectId, meetingMinuteId),
+    enabled: Number.isFinite(projectId) && Number.isFinite(meetingMinuteId),
   });
 }
 

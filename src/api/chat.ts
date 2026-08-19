@@ -2,7 +2,8 @@ import type {
   ChatMessage,
   ChatRoom,
   ChatTranslation,
-  MeetingMinuteDetail,
+  MeetingMinute,
+  MeetingMinuteDraft,
   RoadmapPhase,
   TeamMember,
   TodayTask,
@@ -11,6 +12,7 @@ import { withDemoFallback } from '@/services/demo-fallback';
 
 import { apiClient, mockDelay } from './client';
 import {
+  addMockMeetingMinute,
   mockChatProjects,
   mockChatRoom,
   mockMeetingMinuteDetail,
@@ -32,6 +34,22 @@ function mapRoadmapStages(steps: any[]): RoadmapPhase[] {
     dueDate: s.endDate,
     deadline: s.endDate,
   }));
+}
+
+// 실제 스펙(MeetingMinuteResponse) 1건을 프론트 MeetingMinute 모양으로 변환합니다.
+// 필드명은 같지만 값이 비어 올 수 있어서(특히 AI가 만든 데이터) 화면이 터지지 않게 기본값을 채웁니다.
+function mapMeetingMinute(raw: any): MeetingMinute {
+  return {
+    meetingMinuteId: raw?.meetingMinuteId ?? 0,
+    projectId: raw?.projectId ?? 0,
+    title: raw?.title ?? '',
+    content: raw?.content ?? '',
+    createdAt: raw?.createdAt ?? '',
+  };
+}
+
+function byCreatedAtDesc(a: MeetingMinute, b: MeetingMinute) {
+  return (new Date(b.createdAt).getTime() || 0) - (new Date(a.createdAt).getTime() || 0);
 }
 
 // 실제 스펙(TaskResponse)의 배열을 프론트 TodayTask 모양으로 변환합니다.
@@ -296,42 +314,50 @@ export async function uploadChatFile(projectId: number, file: { uri: string; nam
   );
 }
 
-// ⚠️ 실제 백엔드엔 "회의록 AI 생성" API가 없음. 대화를 보고 자동 요약해주는 게 아니라
-// title/content를 프론트가 직접 채워서 POST해야 하는 구조라, 지금 화면 흐름 자체를 백엔드팀과
-// 다시 맞춰야 함. content도 문자열 하나뿐이라(주요논의/결정사항/역할 구조 아님) 화면 재설계 필요.
-export async function createMeetingMinute(projectId: number): Promise<MeetingMinuteDetail> {
+// ✅ 실제 연동: POST /api/chat/rooms/{projectId}/meeting-minutes
+// ⚠️ 과제/로드맵과 달리 회의록엔 ai-generate가 없습니다. 이 API는 대화를 요약해주는 게 아니라
+// title/content를 그대로 저장하는 CRUD라(둘 다 필수), 초안은 프론트에서 만들어 넘깁니다.
+// (utils/meeting-minute.ts의 buildMeetingMinuteDraft → 사용자가 시트에서 확인·수정 → 여기로 저장)
+export async function createMeetingMinute(
+  projectId: number,
+  draft: MeetingMinuteDraft
+): Promise<MeetingMinute> {
   return withDemoFallback(
     async () => {
-      const { data } = await apiClient.post(`/api/chat/rooms/${projectId}/meeting-minutes`);
-      return data;
+      const { data } = await apiClient.post(`/api/chat/rooms/${projectId}/meeting-minutes`, {
+        title: draft.title,
+        content: draft.content,
+      });
+      return mapMeetingMinute(data);
     },
-    () => mockDelay(mockMeetingMinuteDetail(mockMeetingMinutes.length + 1))
+    () => mockDelay(addMockMeetingMinute(projectId, draft))
   );
 }
 
-// ⚠️ 위 createMeetingMinute와 같은 이유로 응답 형태(content가 문자열)가 맞지 않습니다.
-export async function getMeetingMinutes(projectId: number) {
+// ✅ 실제 연동: GET /api/chat/rooms/{projectId}/meeting-minutes
+// 응답은 래핑 없는 배열입니다. 최신 회의록이 위로 오도록 정렬해서 돌려줍니다.
+export async function getMeetingMinutes(projectId: number): Promise<MeetingMinute[]> {
   return withDemoFallback(
     async () => {
       const { data } = await apiClient.get(`/api/chat/rooms/${projectId}/meeting-minutes`);
-      return data;
+      const list = Array.isArray(data) ? data : (data?.meetingMinutes ?? []);
+      return list.map(mapMeetingMinute).sort(byCreatedAtDesc);
     },
-    () => mockDelay({ meetingMinutes: mockMeetingMinutes })
+    () => mockDelay([...mockMeetingMinutes].sort(byCreatedAtDesc))
   );
 }
 
-// ⚠️ 위와 같은 이유(content 구조 불일치) + 문서에 정확한 경로가
-// 명시되지 않아 REST 관례로 추정 구현한 상태
+// ✅ 실제 연동: GET /api/chat/rooms/{projectId}/meeting-minutes/{meetingMinuteId}
 export async function getMeetingMinuteDetail(
   projectId: number,
   meetingMinuteId: number
-): Promise<MeetingMinuteDetail> {
+): Promise<MeetingMinute> {
   return withDemoFallback(
     async () => {
       const { data } = await apiClient.get(
         `/api/chat/rooms/${projectId}/meeting-minutes/${meetingMinuteId}`
       );
-      return data;
+      return mapMeetingMinute(data);
     },
     () => mockDelay(mockMeetingMinuteDetail(meetingMinuteId))
   );

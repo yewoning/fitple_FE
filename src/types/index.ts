@@ -58,20 +58,22 @@ export interface TeamMember {
   description: string;
 }
 
-export interface MeetingMinuteSummary {
+// 서버 계약(MeetingMinuteResponse)과 1:1입니다. content는 구조가 없는 문자열 한 덩어리라
+// '주요 논의/결정 사항' 같은 섹션 구분이 없습니다.
+// ⚠️ 백엔드엔 회의록 AI 생성 API가 없어서(과제/로드맵과 달리 ai-generate가 없음)
+// 본문은 프론트가 대화 내역으로 초안을 만들고 사용자가 확인한 뒤 저장합니다.
+export interface MeetingMinute {
   meetingMinuteId: number;
-  meetingNumber: number;
-  meetingDate: string;
-  topic: string;
+  projectId: number;
+  title: string;
+  content: string;
+  createdAt: string;
 }
 
-export interface MeetingMinuteDetail extends MeetingMinuteSummary {
-  projectName: string;
-  content: {
-    mainDiscussion: string;
-    decisions: string[];
-    rolesAndNextTasks: { name: string; task: string }[];
-  };
+// 저장 전(서버에 아직 없는) 회의록 초안. POST 요청 본문과 같은 모양입니다.
+export interface MeetingMinuteDraft {
+  title: string;
+  content: string;
 }
 
 export type TaskStatus = 'TODO' | 'DONE';

@@ -31,13 +31,19 @@ import {
   useGenerateRoadmapMutation,
   useSendMessageMutation,
   useTeamMembersQuery,
+  useTodayTasksQuery,
 } from '@/hooks/useChat';
 import {
   useUpdateTranslationEnabledMutation,
   useUserSettingsQuery,
 } from '@/hooks/useSettings';
 import { useAuthStore } from '@/store/auth-store';
-import { ChatMessage, MeetingMinuteDetail, TeamMember } from '@/types';
+import { ChatMessage, MeetingMinuteDraft, TeamMember } from '@/types';
+import {
+  buildMeetingMinuteDraft,
+  MEETING_MINUTE_CONTENT_MAX,
+  MEETING_MINUTE_TITLE_MAX,
+} from '@/utils/meeting-minute';
 
 function formatTime(iso: string) {
   const d = new Date(iso);
@@ -90,6 +96,8 @@ export default function ChatRoomScreen() {
     screenFocused && !sendMessageMutation.isPending
   );
   const { data: memberData } = useTeamMembersQuery(projectId);
+  // 회의록 초안의 '다음 할 일'을 채우는 데 씁니다(읽기 전용이라 과제를 새로 만들지 않습니다).
+  const { data: todoTaskData } = useTodayTasksQuery(projectId, 'TODO');
   const createMeetingMinuteMutation = useCreateMeetingMinuteMutation(projectId);
   const createTodayTasksMutation = useCreateTodayTasksMutation(projectId);
   const generateRoadmapMutation = useGenerateRoadmapMutation(projectId);
@@ -99,7 +107,7 @@ export default function ChatRoomScreen() {
   const [viewableMessageIds, setViewableMessageIds] = useState<ReadonlySet<number>>(new Set());
   const [input, setInput] = useState('');
   const [actionLoading, setActionLoading] = useState<string | null>(null);
-  const [meetingPreview, setMeetingPreview] = useState<MeetingMinuteDetail | null>(null);
+  const [meetingDraft, setMeetingDraft] = useState<MeetingMinuteDraft | null>(null);
 
   // 폴링할 때마다 목록이 아래로 튀지 않도록, 첫 진입과 "아래를 보고 있을 때"만 따라 내려갑니다.
   const stickToBottomRef = useRef(true);
@@ -142,6 +150,13 @@ export default function ChatRoomScreen() {
     }
     return map;
   }, [memberData]);
+
+  // 회의록 초안에서도 같은 맵을 씁니다(서버 메시지/과제는 이름 없이 memberId만 옵니다).
+  const resolveMemberName = useCallback(
+    (id: number | null | undefined, fallback: string) =>
+      (id != null ? memberNameById.get(id) : undefined) || fallback,
+    [memberNameById]
+  );
 
   const visibleMessages = useMemo(
     () =>
@@ -232,14 +247,39 @@ export default function ChatRoomScreen() {
     ]);
   };
 
+  // 회의록은 서버가 대화를 요약해주지 않아서, 화면에서 초안을 만들어 시트에 띄우고
+  // 사용자가 확인·수정한 뒤에 저장합니다. (여기서는 네트워크 호출이 없습니다)
+  const handleCreateMeetingDraft = () => {
+    const draft = buildMeetingMinuteDraft({
+      messages,
+      tasks: todoTaskData?.tasks ?? [],
+      resolveName: resolveMemberName,
+    });
+
+    if (!draft) {
+      Alert.alert('알림', '아직 정리할 대화가 없어요. 팀원들과 대화를 나눈 뒤 다시 시도해 주세요.');
+      return;
+    }
+
+    addBotMessage('지금까지의 대화를 바탕으로 회의 내용을 정리했어요.\n확인 후 회의록으로 저장해 주세요!');
+    setMeetingDraft(draft);
+  };
+
+  const handleSaveMeetingMinute = async (draft: MeetingMinuteDraft) => {
+    await createMeetingMinuteMutation.mutateAsync(draft);
+    setMeetingDraft(null);
+    addBotMessage('회의록을 저장했어요. 지난 회의록에서 다시 확인할 수 있어요.');
+  };
+
   const handleQuickAction = async (key: string) => {
+    if (key === 'meeting') {
+      handleCreateMeetingDraft();
+      return;
+    }
+
     setActionLoading(key);
     try {
-      if (key === 'meeting') {
-        const minute = await createMeetingMinuteMutation.mutateAsync();
-        addBotMessage('지금까지의 대화를 바탕으로 회의 내용을 정리했어요.\n확인 후 회의록으로 저장해 주세요!');
-        setMeetingPreview(minute);
-      } else if (key === 'tasks') {
+      if (key === 'tasks') {
         await createTodayTasksMutation.mutateAsync();
         addBotMessage('지금까지의 대화를 바탕으로 오늘의 할 일을 정리했어요. 확인 후 바로 과제를 시작해볼까요?');
       } else {
@@ -343,77 +383,129 @@ export default function ChatRoomScreen() {
         </View>
         </KeyboardAvoidingView>
 
-        {meetingPreview ? (
-          <MeetingMinutePreviewSheet minute={meetingPreview} onClose={() => setMeetingPreview(null)} />
+        {meetingDraft ? (
+          <MeetingMinuteDraftSheet
+            draft={meetingDraft}
+            saving={createMeetingMinuteMutation.isPending}
+            onSave={handleSaveMeetingMinute}
+            onClose={() => setMeetingDraft(null)}
+          />
         ) : null}
       </View>
     </CommonLayout>
   );
 }
 
-// 채팅방 '회의록 생성' 미리보기 화면 스크린샷 기준: 채팅 하단에서 위로 올라오는 스크롤 가능한 바텀시트
-function MeetingMinutePreviewSheet({
-  minute,
+// 채팅 하단에서 올라오는 회의록 초안 시트.
+// 서버가 대화를 요약해주지 않으므로 저장 전에 사용자가 제목/본문을 직접 다듬는 자리입니다.
+function MeetingMinuteDraftSheet({
+  draft,
+  saving,
+  onSave,
   onClose,
 }: {
-  minute: MeetingMinuteDetail;
+  draft: MeetingMinuteDraft;
+  saving: boolean;
+  onSave: (draft: MeetingMinuteDraft) => Promise<void>;
   onClose: () => void;
 }) {
-  const shortDate = minute.meetingDate.slice(2);
+  const [title, setTitle] = useState(draft.title);
+  const [content, setContent] = useState(draft.content);
+
+  const handleSave = async () => {
+    const trimmedTitle = title.trim();
+    const trimmedContent = content.trim();
+    if (!trimmedTitle || !trimmedContent) {
+      Alert.alert('알림', '제목과 회의 내용을 모두 입력해 주세요.');
+      return;
+    }
+
+    try {
+      await onSave({ title: trimmedTitle, content: trimmedContent });
+    } catch (e: any) {
+      // 저장에 실패해도 시트를 닫지 않습니다(작성 중이던 내용이 사라지지 않도록).
+      Alert.alert('저장 실패', e?.message ?? '회의록을 저장하지 못했어요. 잠시 후 다시 시도해 주세요.');
+    }
+  };
 
   return (
     <View
       className="absolute bottom-0 left-0 right-0 overflow-hidden rounded-t-3xl bg-gray-1"
-      style={{ height: '62%', shadowColor: '#000', shadowOpacity: 0.12, shadowRadius: 12, shadowOffset: { width: 0, height: -2 }, elevation: 12 }}
+      style={{ height: '78%', shadowColor: '#000', shadowOpacity: 0.12, shadowRadius: 12, shadowOffset: { width: 0, height: -2 }, elevation: 12 }}
     >
-      <TouchableOpacity className="items-center py-3" onPress={onClose} activeOpacity={0.7}>
-        <View className="h-1 w-10 rounded-full bg-gray-3" />
-      </TouchableOpacity>
+      {/* 시트는 바깥 KeyboardAvoidingView의 형제라, 본문 입력이 키보드에 가리지 않도록 따로 감쌉니다. */}
+      <KeyboardAvoidingView
+        style={{ flex: 1 }}
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        keyboardVerticalOffset={40}
+      >
+        <TouchableOpacity className="items-center py-3" onPress={onClose} activeOpacity={0.7}>
+          <View className="h-1 w-10 rounded-full bg-gray-3" />
+        </TouchableOpacity>
 
-      <ScrollView contentContainerClassName="gap-4 px-5 pb-8" showsVerticalScrollIndicator={false}>
-        <View>
-          <Text className="font-sans-bold text-xl text-black">{minute.projectName}</Text>
-          <Text className="mt-1 font-sans text-[13px] text-gray-5">
-            {shortDate} {minute.meetingNumber}차 회의
-          </Text>
-        </View>
-
-        <View className="gap-2">
-          <Text className="font-sans-bold text-[15px] text-black">회의 주제</Text>
-          <View className="rounded-2xl bg-white px-4 py-3.5">
-            <Text className="font-sans text-[15px] text-black">{minute.topic}</Text>
+        <ScrollView
+          contentContainerClassName="gap-4 px-5 pb-4"
+          keyboardShouldPersistTaps="handled"
+          showsVerticalScrollIndicator={false}
+        >
+          <View>
+            <Text className="font-sans-bold text-xl text-black">회의록 정리</Text>
+            <Text className="mt-1 font-sans text-[13px] text-gray-5">
+              내용을 확인하고 자유롭게 고친 뒤 저장해 주세요.
+            </Text>
           </View>
-        </View>
 
-        <View className="gap-2">
-          <Text className="font-sans-bold text-[15px] text-black">회의 내용</Text>
-          <View className="gap-4 rounded-2xl bg-white p-4">
-            <View className="gap-1">
-              <Text className="font-sans-bold text-[13px] text-black">주요 논의</Text>
-              <Text className="font-sans text-sm leading-5 text-gray-6">{minute.content.mainDiscussion}</Text>
-            </View>
-
-            <View className="gap-1">
-              <Text className="font-sans-bold text-[13px] text-black">결정 사항</Text>
-              {minute.content.decisions.map((line, index) => (
-                <Text key={index} className="font-sans text-sm leading-5 text-gray-6">
-                  {line}
-                </Text>
-              ))}
-            </View>
-
-            <View className="gap-1">
-              <Text className="font-sans-bold text-[13px] text-black">역할 및 다음 할 일</Text>
-              {minute.content.rolesAndNextTasks.map((item) => (
-                <View key={item.name} className="flex-row gap-2">
-                  <Text className="w-14 font-sans-semibold text-sm text-black">{item.name}</Text>
-                  <Text className="flex-1 font-sans text-sm text-gray-6">{item.task}</Text>
-                </View>
-              ))}
-            </View>
+          <View className="gap-2">
+            <Text className="font-sans-bold text-[15px] text-black">제목</Text>
+            <TextInput
+              className="rounded-2xl bg-white px-4 py-3.5 font-sans text-[15px] text-black"
+              value={title}
+              onChangeText={setTitle}
+              maxLength={MEETING_MINUTE_TITLE_MAX}
+              placeholder="예) 08.20 회의록"
+              placeholderTextColor="#a8adbe"
+            />
           </View>
+
+          <View className="gap-2">
+            <View className="flex-row items-center justify-between">
+              <Text className="font-sans-bold text-[15px] text-black">회의 내용</Text>
+              <Text className="font-sans text-[11px] text-gray-4">
+                {content.length}/{MEETING_MINUTE_CONTENT_MAX}
+              </Text>
+            </View>
+            <TextInput
+              className="min-h-[220px] rounded-2xl bg-white px-4 py-3.5 font-sans text-sm leading-5 text-black"
+              value={content}
+              onChangeText={setContent}
+              maxLength={MEETING_MINUTE_CONTENT_MAX}
+              multiline
+              textAlignVertical="top"
+              placeholder="회의에서 나눈 내용을 정리해 주세요."
+              placeholderTextColor="#a8adbe"
+            />
+          </View>
+        </ScrollView>
+
+        <View className="flex-row gap-2 border-t border-gray-2 px-5 py-3">
+          <TouchableOpacity
+            className="flex-1 items-center rounded-full border border-gray-2 bg-white py-3"
+            onPress={onClose}
+            disabled={saving}
+          >
+            <Text className="font-sans-medium text-[15px] text-gray-6">취소</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            className={saving ? 'flex-1 items-center rounded-full bg-gray-3 py-3' : 'flex-1 items-center rounded-full bg-dark-blue py-3'}
+            onPress={handleSave}
+            disabled={saving}
+          >
+            <Text className="font-sans-semibold text-[15px] text-white">
+              {saving ? '저장 중...' : '저장하기'}
+            </Text>
+          </TouchableOpacity>
         </View>
-      </ScrollView>
+      </KeyboardAvoidingView>
     </View>
   );
 }

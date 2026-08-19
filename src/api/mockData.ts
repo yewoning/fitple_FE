@@ -2,8 +2,7 @@ import {
   ChatMessage,
   ChatProjectSummary,
   ChatRoom,
-  MeetingMinuteDetail,
-  MeetingMinuteSummary,
+  MeetingMinute,
   ResumeVersion,
   RoadmapPhase,
   ScrapItem,
@@ -307,32 +306,83 @@ export const mockTeamMembers: TeamMember[] = [
   },
 ];
 
-// 지난 회의록 화면 스크린샷 기준
-export const mockMeetingMinutes: MeetingMinuteSummary[] = [
-  { meetingMinuteId: 1, meetingNumber: 1, meetingDate: '2026.08.08 (토) 16:30', topic: '콘텐츠 방향 정리' },
-  { meetingMinuteId: 2, meetingNumber: 2, meetingDate: '2026.08.12 (수) 16:30', topic: '주제 및 기획안 초안 작성' },
-  { meetingMinuteId: 3, meetingNumber: 3, meetingDate: '2026.08.19 (수) 16:30', topic: '팀원별 일정 확인' },
-  { meetingMinuteId: 4, meetingNumber: 4, meetingDate: '2026.08.26 (수) 16:30', topic: '촬영 계획 확정' },
-  { meetingMinuteId: 5, meetingNumber: 5, meetingDate: '2026.09.09 (수) 16:30', topic: '편집본 1차 검토' },
+// 지난 회의록 화면. 서버 계약(MeetingMinuteResponse)과 같은 플랫 구조라
+// content는 buildMeetingMinuteDraft가 만드는 평문 형식 그대로 들고 있습니다.
+export const mockMeetingMinutes: MeetingMinute[] = [
+  {
+    meetingMinuteId: 1,
+    projectId: 1,
+    title: '08.08 회의록',
+    content: [
+      '2026.08.08 (토) 16:30 나눈 대화 정리',
+      '',
+      '[대화 내용]',
+      '16:30 김지수: 한국·해외 대학생활 문화 차이를 메인 주제로 잡으면 좋을 것 같아요',
+      '16:34 이준호: 인터뷰형 숏폼이 제일 잘 맞을 것 같습니다',
+      '16:41 최민재: 캠퍼스 일상 소스 영상도 같이 찍어두면 편집이 수월해요',
+      '',
+      '[다음 할 일]',
+      '- 김지수: 전체 콘텐츠 방향 정리 (마감 08.12)',
+      '- 김서윤: 유사 콘텐츠 조사 · 인터뷰이 탐색',
+      '- 이준호: 인터뷰 질문 구성',
+    ].join('\n'),
+    createdAt: '2026-08-08T16:30:00',
+  },
+  {
+    meetingMinuteId: 2,
+    projectId: 1,
+    title: '08.12 회의록',
+    content: [
+      '2026.08.12 (수) 16:30 나눈 대화 정리',
+      '',
+      '[대화 내용]',
+      '16:30 김서윤: 기획안 초안 공유드렸어요, 인터뷰이 후보도 정리해뒀습니다',
+      '16:38 박하린: 촬영 구성은 인터뷰 2컷 + 캠퍼스 인서트로 잡을게요',
+      '',
+      '[다음 할 일]',
+      '- 박하린: 인터뷰 촬영 구성 (마감 08.19)',
+      '- Emily: 문화 차이 사례 정리',
+    ].join('\n'),
+    createdAt: '2026-08-12T16:30:00',
+  },
+  {
+    meetingMinuteId: 3,
+    projectId: 1,
+    title: '08.19 회의록',
+    content: [
+      '2026.08.19 (수) 16:30 나눈 대화 정리',
+      '',
+      '[대화 내용]',
+      '16:30 김지수: 다음 주 촬영 일정 맞춰볼게요, 가능한 요일 알려주세요',
+      '16:35 최민재: 저는 수요일 오후가 제일 편합니다',
+      '',
+      '[다음 할 일]',
+      '- 최민재: 캠퍼스 소스 영상 촬영 (마감 08.26)',
+    ].join('\n'),
+    createdAt: '2026-08-19T16:30:00',
+  },
 ];
 
-// 채팅방 '회의록 생성' 미리보기 화면 스크린샷 기준
-export const mockMeetingMinuteDetail = (id: number): MeetingMinuteDetail => ({
-  meetingMinuteId: id,
-  meetingNumber: id,
-  meetingDate: '2026.08.08',
-  projectName: '교환학생 문화교류 콘텐츠 제작',
-  topic: '콘텐츠 주제 및 방향 설정',
-  content: {
-    mainDiscussion: '한국과 해외 대학생활의 문화 차이를 주제로 인터뷰형 숏폼 콘텐츠를 제작하기로 했어요.',
-    decisions: ['메인 주제: 한국·해외 대학생활 문화 차이', '콘텐츠 형식: 인터뷰형 숏폼', '캠퍼스 일상 소스 영상 함께 촬영'],
-    rolesAndNextTasks: [
-      { name: '김지수', task: '전체 콘텐츠 방향 정리' },
-      { name: '김서윤', task: '유사 콘텐츠 조사 · 인터뷰이 탐색' },
-      { name: '이준호', task: '인터뷰 질문 구성' },
-      { name: '박하린', task: '인터뷰 촬영 구성' },
-      { name: '최민재', task: '캠퍼스 소스 영상 촬영' },
-      { name: 'Emily', task: '문화 차이 사례 정리' },
-    ],
-  },
-});
+// 상세 화면 목업. 목록에 없는 id로 들어와도 화면이 비지 않도록 첫 항목을 폴백으로 씁니다.
+export const mockMeetingMinuteDetail = (id: number): MeetingMinute =>
+  mockMeetingMinutes.find((minute) => minute.meetingMinuteId === id) ?? {
+    ...mockMeetingMinutes[0],
+    meetingMinuteId: id,
+  };
+
+// 목업 모드에서도 방금 저장한 회의록이 목록/상세에 보이도록 메모리에 쌓아둡니다(앱 재시작 시 초기화).
+export function addMockMeetingMinute(
+  projectId: number,
+  draft: { title: string; content: string }
+): MeetingMinute {
+  const nextId = mockMeetingMinutes.reduce((max, m) => Math.max(max, m.meetingMinuteId), 0) + 1;
+  const created: MeetingMinute = {
+    meetingMinuteId: nextId,
+    projectId,
+    title: draft.title,
+    content: draft.content,
+    createdAt: new Date().toISOString(),
+  };
+  mockMeetingMinutes.push(created);
+  return created;
+}
