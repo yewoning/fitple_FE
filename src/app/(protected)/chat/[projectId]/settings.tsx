@@ -5,7 +5,7 @@ import { Alert, ScrollView, Text, TouchableOpacity, View } from 'react-native';
 
 import { CommonLayout } from '@/components/layout';
 import { PrimaryButton } from '@/components/ui/button';
-import { useChatRoomQuery } from '@/hooks/useChat';
+import { useChatProjectSummary } from '@/hooks/useChat';
 
 const MENU = [
   { key: 'members', icon: 'person-outline', title: '팀원 목록', desc: '팀원 정보 및 역할 확인' },
@@ -20,7 +20,8 @@ export default function ChatRoomSettingsScreen() {
   const { projectId: projectIdParam } = useLocalSearchParams<{ projectId: string }>();
   const projectId = Number(projectIdParam);
   const router = useRouter();
-  const { data: room } = useChatRoomQuery(projectId);
+  // 방 조회 API({ roomId, projectId })엔 이름/아이콘/인원수가 없어서 채팅 목록에서 가져옵니다.
+  const room = useChatProjectSummary(projectId);
 
   const handlePress = (key: (typeof MENU)[number]['key']) => {
     if (key === 'members') router.push({ pathname: '/chat/[projectId]/members', params: { projectId: projectIdParam } });

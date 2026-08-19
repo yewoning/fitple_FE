@@ -4,6 +4,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 export interface TranslationControl {
   enabled: boolean;
+  disabled?: boolean;
   onChange: (next: boolean) => void;
 }
 
@@ -81,10 +82,11 @@ export function AppHeader({
             <Pressable
               accessibilityLabel={`번역 ${translation.enabled ? '켜짐' : '꺼짐'}`}
               accessibilityRole="switch"
-              accessibilityState={{ checked: translation.enabled }}
+              accessibilityState={{ checked: translation.enabled, disabled: translation.disabled }}
               className="h-9 flex-row items-center rounded-full bg-white-dark-sky-blue p-1 pl-3"
+              disabled={translation.disabled}
               onPress={() => translation.onChange(!translation.enabled)}
-              style={{ width: TRANSLATION_WIDTH }}
+              style={{ width: TRANSLATION_WIDTH, opacity: translation.disabled ? 0.55 : 1 }}
             >
               <Text className="mr-2 font-sans text-xs font-normal text-gray-6">번역</Text>
               <View

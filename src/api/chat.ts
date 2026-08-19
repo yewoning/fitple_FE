@@ -1,8 +1,18 @@
-import type { MeetingMinuteDetail, RoadmapPhase, TeamMember, TodayTask } from '@/types';
+import type {
+  ChatMessage,
+  ChatRoom,
+  ChatTranslation,
+  MeetingMinute,
+  MeetingMinuteDraft,
+  RoadmapPhase,
+  TeamMember,
+  TodayTask,
+} from '@/types';
 import { withDemoFallback } from '@/services/demo-fallback';
 
 import { apiClient, mockDelay } from './client';
 import {
+  addMockMeetingMinute,
   mockChatProjects,
   mockChatRoom,
   mockMeetingMinuteDetail,
@@ -24,6 +34,22 @@ function mapRoadmapStages(steps: any[]): RoadmapPhase[] {
     dueDate: s.endDate,
     deadline: s.endDate,
   }));
+}
+
+// 실제 스펙(MeetingMinuteResponse) 1건을 프론트 MeetingMinute 모양으로 변환합니다.
+// 필드명은 같지만 값이 비어 올 수 있어서(특히 AI가 만든 데이터) 화면이 터지지 않게 기본값을 채웁니다.
+function mapMeetingMinute(raw: any): MeetingMinute {
+  return {
+    meetingMinuteId: raw?.meetingMinuteId ?? 0,
+    projectId: raw?.projectId ?? 0,
+    title: raw?.title ?? '',
+    content: raw?.content ?? '',
+    createdAt: raw?.createdAt ?? '',
+  };
+}
+
+function byCreatedAtDesc(a: MeetingMinute, b: MeetingMinute) {
+  return (new Date(b.createdAt).getTime() || 0) - (new Date(a.createdAt).getTime() || 0);
 }
 
 // 실제 스펙(TaskResponse)의 배열을 프론트 TodayTask 모양으로 변환합니다.
@@ -66,50 +92,201 @@ export async function getChatProjects(memberId: number | null) {
   );
 }
 
-export async function enterChatRoom(projectId: number) {
+// ✅ 실제 연동: GET /api/chat/rooms/{projectId}
+// 응답은 { roomId, projectId } 뿐입니다. 이 roomId가 메시지 조회/전송 경로에 들어가는 값이라,
+// 예전처럼 projectId를 그대로 메시지 API에 넣으면 다른 방을 보거나 404가 납니다.
+export async function enterChatRoom(projectId: number): Promise<ChatRoom> {
   return withDemoFallback(
     async () => {
       const { data } = await apiClient.get(`/api/chat/rooms/${projectId}`);
-      return data;
+      return {
+        roomId: data?.roomId ?? projectId,
+        projectId: data?.projectId ?? projectId,
+      };
     },
     () => mockDelay(mockChatRoom(projectId))
   );
 }
 
-// 실제 응답(ChatMessageResponse)엔 senderName/translatedContent/isMe가 없어서 추가 매핑이 필요합니다.
-// 계약이 완성될 때까지 mock-only 또는 서버 장애 폴백에서 현재 화면 형태를 보장합니다.
-export async function getMessages(roomId: number, cursor?: number, size = 30) {
-  return withDemoFallback(
+// 서버가 주는 메시지 1건의 형태(ChatMessageResponse).
+// 화면 모델(ChatMessage)과 이름이 달라서(memberId/createdAt) 여기서 한 번에 번역해줍니다.
+interface ChatMessageResponse {
+  messageId?: number;
+  memberId?: number;
+  memberName?: string | null;
+  profileImageUrl?: string | null;
+  content?: string | null;
+  createdAt?: string;
+}
+
+// 실제 응답엔 senderName/isMe가 없습니다.
+// - senderName: 빈 값으로 두고 화면에서 팀원 목록(getTeamMembers)으로 채웁니다.
+// - isMe: 로그인 memberId와 비교해서 훅(useChat)에서 계산합니다.
+// 번역 결과는 사용자 설정에 따라 달라지므로 메시지 모델과 분리해 React Query에 캐시합니다.
+function mapChatMessage(raw: ChatMessageResponse & Record<string, any>): ChatMessage {
+  return {
+    messageId: raw?.messageId ?? raw?.id ?? 0,
+    senderId: raw?.memberId ?? raw?.senderId ?? 0,
+    senderName: raw?.memberName ?? raw?.senderName ?? '',
+    profileImageUrl: raw?.profileImageUrl ?? null,
+    content: raw?.content ?? '',
+    sentAt: raw?.createdAt ?? raw?.sentAt ?? new Date().toISOString(),
+  };
+}
+
+const TRANSLATION_TARGET_LANGUAGE = 'ko' as const;
+const MAX_CONCURRENT_TRANSLATIONS = 3;
+const MOCK_TRANSLATIONS: Record<string, string> = {
+  'I think everyday cultural differences would be fun and relatable!':
+    '일상 속 문화 차이를 다루면 재미있고 공감하기 좋을 것 같아요!',
+};
+
+type TranslationQueueEntry = {
+  start: () => void;
+};
+
+let activeTranslationCount = 0;
+const translationQueue: TranslationQueueEntry[] = [];
+
+function createAbortError() {
+  const error = new Error('번역 요청이 취소되었습니다.');
+  error.name = 'AbortError';
+  return error;
+}
+
+function drainTranslationQueue() {
+  while (activeTranslationCount < MAX_CONCURRENT_TRANSLATIONS && translationQueue.length > 0) {
+    translationQueue.shift()?.start();
+  }
+}
+
+function runTranslationLimited<T>(request: () => Promise<T>, signal?: AbortSignal): Promise<T> {
+  return new Promise<T>((resolve, reject) => {
+    if (signal?.aborted) {
+      reject(createAbortError());
+      return;
+    }
+
+    let started = false;
+    const entry: TranslationQueueEntry = {
+      start: () => {
+        if (signal?.aborted) {
+          reject(createAbortError());
+          drainTranslationQueue();
+          return;
+        }
+
+        started = true;
+        signal?.removeEventListener('abort', handleAbort);
+        activeTranslationCount += 1;
+        Promise.resolve()
+          .then(request)
+          .then(resolve, reject)
+          .finally(() => {
+            activeTranslationCount -= 1;
+            drainTranslationQueue();
+          });
+      },
+    };
+
+    const handleAbort = () => {
+      if (started) return;
+      const index = translationQueue.indexOf(entry);
+      if (index >= 0) translationQueue.splice(index, 1);
+      reject(createAbortError());
+    };
+
+    signal?.addEventListener('abort', handleAbort, { once: true });
+    translationQueue.push(entry);
+    drainTranslationQueue();
+  });
+}
+
+export async function translateChatMessage(
+  content: string,
+  signal?: AbortSignal
+): Promise<ChatTranslation> {
+  const originalContent = content.trim();
+  if (!originalContent) throw new Error('번역할 메시지가 없습니다.');
+
+  return runTranslationLimited(
     async () => {
-      const { data } = await apiClient.get(`/api/chat/rooms/${roomId}/messages`, {
-        params: { size, cursor },
-      });
-      return data;
+      const result = await withDemoFallback(
+        async () => {
+          const { data } = await apiClient.post(
+            '/api/chat/translate',
+            { content: originalContent, targetLanguage: TRANSLATION_TARGET_LANGUAGE },
+            { signal }
+          );
+          return data;
+        },
+        () =>
+          mockDelay({
+            originalContent,
+            translatedContent: MOCK_TRANSLATIONS[originalContent] ?? originalContent,
+            targetLanguage: TRANSLATION_TARGET_LANGUAGE,
+          })
+      );
+
+      const translatedContent = result?.translatedContent?.trim();
+      if (!translatedContent) throw new Error('번역 결과를 확인할 수 없습니다.');
+
+      return {
+        originalContent: result?.originalContent ?? originalContent,
+        translatedContent,
+        targetLanguage: TRANSLATION_TARGET_LANGUAGE,
+      };
     },
-    () => mockDelay({ messages: mockMessages, nextCursor: null, hasNext: false })
+    signal
   );
 }
 
-// 실제 API가 전송자 memberId를 요구하는 경우 로그인 응답 계약과 함께 보완해야 합니다.
-export async function sendMessage(roomId: number, projectId: number, content: string) {
+// ✅ 실제 연동: GET /api/chat/rooms/{roomId}/messages (응답은 배열)
+//
+// ⚠️ size 파라미터를 절대 보내지 마세요. 서버 버그로, size를 보내면 값과 상관없이
+// "가장 최근 1건"만 돌아옵니다. 실서버로 확인한 결과:
+//   ?size=1 / 5 / 30 / 100  → 전부 1건
+//   ?size=0                 → "size는 1 이상이어야 합니다" (파싱은 되는데 조회가 깨짐)
+//   ?foo=1 (size 아닌 값)   → 전체 반환
+//   파라미터 없음            → 전체 반환
+// 이것 때문에 메시지를 여러 번 보내도 마지막 1건만 보이는 문제가 있었습니다.
+// 백엔드가 size를 고치면 params를 되살리고 아래 표시 상한도 서버로 옮기면 됩니다.
+// (같은 이유로 /messages/previous 도 지금은 1건만 줘서 과거 이력 페이징은 불가)
+export async function getMessages(roomId: number): Promise<ChatMessage[]> {
   return withDemoFallback(
     async () => {
-      const { data } = await apiClient.post(`/api/chat/rooms/${roomId}/messages`, {
-        content,
-        projectId,
-      });
-      return data;
+      const { data } = await apiClient.get(`/api/chat/rooms/${roomId}/messages`);
+      const list: any[] = Array.isArray(data) ? data : (data?.messages ?? []);
+      return list.map(mapChatMessage);
+    },
+    () => mockDelay(mockMessages)
+  );
+}
+
+// ✅ 실제 연동: POST /api/chat/rooms/{roomId}/messages?memberId=  (본문은 { content } 뿐)
+// memberId는 쿼리 파라미터로 "필수"라서 본문에 넣으면 서버가 누가 보냈는지 몰라 실패합니다.
+export async function sendMessage(
+  roomId: number,
+  memberId: number,
+  content: string
+): Promise<ChatMessage> {
+  return withDemoFallback(
+    async () => {
+      const { data } = await apiClient.post(
+        `/api/chat/rooms/${roomId}/messages`,
+        { content },
+        { params: { memberId } }
+      );
+      return mapChatMessage(data ?? {});
     },
     () =>
       mockDelay({
         messageId: Date.now(),
-        senderId: 1,
-        senderName: '김지수',
+        senderId: memberId,
+        senderName: '',
+        profileImageUrl: null,
         content,
-        originalLanguage: 'ko',
-        translatedContent: null,
         sentAt: new Date().toISOString(),
-        isMe: true,
       })
   );
 }
@@ -137,42 +314,50 @@ export async function uploadChatFile(projectId: number, file: { uri: string; nam
   );
 }
 
-// ⚠️ 실제 백엔드엔 "회의록 AI 생성" API가 없음. 대화를 보고 자동 요약해주는 게 아니라
-// title/content를 프론트가 직접 채워서 POST해야 하는 구조라, 지금 화면 흐름 자체를 백엔드팀과
-// 다시 맞춰야 함. content도 문자열 하나뿐이라(주요논의/결정사항/역할 구조 아님) 화면 재설계 필요.
-export async function createMeetingMinute(projectId: number): Promise<MeetingMinuteDetail> {
+// ✅ 실제 연동: POST /api/chat/rooms/{projectId}/meeting-minutes
+// ⚠️ 과제/로드맵과 달리 회의록엔 ai-generate가 없습니다. 이 API는 대화를 요약해주는 게 아니라
+// title/content를 그대로 저장하는 CRUD라(둘 다 필수), 초안은 프론트에서 만들어 넘깁니다.
+// (utils/meeting-minute.ts의 buildMeetingMinuteDraft → 사용자가 시트에서 확인·수정 → 여기로 저장)
+export async function createMeetingMinute(
+  projectId: number,
+  draft: MeetingMinuteDraft
+): Promise<MeetingMinute> {
   return withDemoFallback(
     async () => {
-      const { data } = await apiClient.post(`/api/chat/rooms/${projectId}/meeting-minutes`);
-      return data;
+      const { data } = await apiClient.post(`/api/chat/rooms/${projectId}/meeting-minutes`, {
+        title: draft.title,
+        content: draft.content,
+      });
+      return mapMeetingMinute(data);
     },
-    () => mockDelay(mockMeetingMinuteDetail(mockMeetingMinutes.length + 1))
+    () => mockDelay(addMockMeetingMinute(projectId, draft))
   );
 }
 
-// ⚠️ 위 createMeetingMinute와 같은 이유로 응답 형태(content가 문자열)가 맞지 않습니다.
-export async function getMeetingMinutes(projectId: number) {
+// ✅ 실제 연동: GET /api/chat/rooms/{projectId}/meeting-minutes
+// 응답은 래핑 없는 배열입니다. 최신 회의록이 위로 오도록 정렬해서 돌려줍니다.
+export async function getMeetingMinutes(projectId: number): Promise<MeetingMinute[]> {
   return withDemoFallback(
     async () => {
       const { data } = await apiClient.get(`/api/chat/rooms/${projectId}/meeting-minutes`);
-      return data;
+      const list = Array.isArray(data) ? data : (data?.meetingMinutes ?? []);
+      return list.map(mapMeetingMinute).sort(byCreatedAtDesc);
     },
-    () => mockDelay({ meetingMinutes: mockMeetingMinutes })
+    () => mockDelay([...mockMeetingMinutes].sort(byCreatedAtDesc))
   );
 }
 
-// ⚠️ 위와 같은 이유(content 구조 불일치) + 문서에 정확한 경로가
-// 명시되지 않아 REST 관례로 추정 구현한 상태
+// ✅ 실제 연동: GET /api/chat/rooms/{projectId}/meeting-minutes/{meetingMinuteId}
 export async function getMeetingMinuteDetail(
   projectId: number,
   meetingMinuteId: number
-): Promise<MeetingMinuteDetail> {
+): Promise<MeetingMinute> {
   return withDemoFallback(
     async () => {
       const { data } = await apiClient.get(
         `/api/chat/rooms/${projectId}/meeting-minutes/${meetingMinuteId}`
       );
-      return data;
+      return mapMeetingMinute(data);
     },
     () => mockDelay(mockMeetingMinuteDetail(meetingMinuteId))
   );
