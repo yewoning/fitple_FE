@@ -14,6 +14,7 @@ import {
   getTeamMembers,
   getTodayTasks,
   sendMessage,
+  translateChatMessage,
   updateTaskStatus,
 } from '@/api/chat';
 import type { ChatMessage, ChatProjectSummary, TaskStatus } from '@/types';
@@ -24,6 +25,9 @@ export const chatKeys = {
   room: (projectId: number) => ['chat', 'room', projectId] as const,
   // ⚠️ 메시지는 projectId가 아니라 서버가 준 roomId 기준으로 캐싱합니다.
   messages: (roomId: number) => ['chat', 'messages', roomId] as const,
+  translations: ['chat', 'translations'] as const,
+  translation: (messageId: number, content: string) =>
+    ['chat', 'translations', messageId, 'ko', content] as const,
   meetingMinutes: (projectId: number) => ['chat', 'meeting-minutes', projectId] as const,
   meetingMinuteDetail: (projectId: number, meetingMinuteId: number) =>
     ['chat', 'meeting-minutes', projectId, meetingMinuteId] as const,
@@ -130,6 +134,24 @@ export function useChatMessagesQuery(
   });
 }
 
+export function useChatTranslationQuery(message: ChatMessage, enabled: boolean) {
+  const content = message.content.trim();
+  const shouldTranslate =
+    enabled && !message.isMe && !message.isBot && message.messageId > 0 && content.length > 0;
+
+  return useQuery({
+    queryKey: chatKeys.translation(message.messageId, content),
+    queryFn: ({ signal }) => translateChatMessage(content, signal),
+    enabled: shouldTranslate,
+    staleTime: Infinity,
+    gcTime: 30 * 60 * 1000,
+    retry: false,
+    retryOnMount: false,
+    refetchOnReconnect: false,
+    refetchOnWindowFocus: false,
+  });
+}
+
 /**
  * 메시지 전송.
  * 보내는 즉시 임시 메시지를 캐시에 넣어 화면에 띄우고(낙관적 업데이트),
@@ -157,8 +179,6 @@ export function useSendMessageMutation(roomId: number | null | undefined, member
         senderName: '',
         profileImageUrl: null,
         content,
-        originalLanguage: 'ko',
-        translatedContent: null,
         sentAt: new Date().toISOString(),
       };
       queryClient.setQueryData<ChatMessage[]>(messagesKey, (old) => [...(old ?? []), optimistic]);

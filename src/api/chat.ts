@@ -1,6 +1,7 @@
 import type {
   ChatMessage,
   ChatRoom,
+  ChatTranslation,
   MeetingMinuteDetail,
   RoadmapPhase,
   TeamMember,
@@ -97,15 +98,13 @@ interface ChatMessageResponse {
   memberName?: string | null;
   profileImageUrl?: string | null;
   content?: string | null;
-  originalLanguage?: string | null;
-  translatedContent?: string | null;
   createdAt?: string;
 }
 
-// ⚠️ 실제 응답엔 senderName/translatedContent/isMe가 없습니다.
+// 실제 응답엔 senderName/isMe가 없습니다.
 // - senderName: 빈 값으로 두고 화면에서 팀원 목록(getTeamMembers)으로 채웁니다.
-// - translatedContent: 번역 API가 아직 없어서 null 고정입니다.
 // - isMe: 로그인 memberId와 비교해서 훅(useChat)에서 계산합니다.
+// 번역 결과는 사용자 설정에 따라 달라지므로 메시지 모델과 분리해 React Query에 캐시합니다.
 function mapChatMessage(raw: ChatMessageResponse & Record<string, any>): ChatMessage {
   return {
     messageId: raw?.messageId ?? raw?.id ?? 0,
@@ -113,10 +112,115 @@ function mapChatMessage(raw: ChatMessageResponse & Record<string, any>): ChatMes
     senderName: raw?.memberName ?? raw?.senderName ?? '',
     profileImageUrl: raw?.profileImageUrl ?? null,
     content: raw?.content ?? '',
-    originalLanguage: raw?.originalLanguage ?? 'ko',
-    translatedContent: raw?.translatedContent ?? null,
     sentAt: raw?.createdAt ?? raw?.sentAt ?? new Date().toISOString(),
   };
+}
+
+const TRANSLATION_TARGET_LANGUAGE = 'ko' as const;
+const MAX_CONCURRENT_TRANSLATIONS = 3;
+const MOCK_TRANSLATIONS: Record<string, string> = {
+  'I think everyday cultural differences would be fun and relatable!':
+    '일상 속 문화 차이를 다루면 재미있고 공감하기 좋을 것 같아요!',
+};
+
+type TranslationQueueEntry = {
+  start: () => void;
+};
+
+let activeTranslationCount = 0;
+const translationQueue: TranslationQueueEntry[] = [];
+
+function createAbortError() {
+  const error = new Error('번역 요청이 취소되었습니다.');
+  error.name = 'AbortError';
+  return error;
+}
+
+function drainTranslationQueue() {
+  while (activeTranslationCount < MAX_CONCURRENT_TRANSLATIONS && translationQueue.length > 0) {
+    translationQueue.shift()?.start();
+  }
+}
+
+function runTranslationLimited<T>(request: () => Promise<T>, signal?: AbortSignal): Promise<T> {
+  return new Promise<T>((resolve, reject) => {
+    if (signal?.aborted) {
+      reject(createAbortError());
+      return;
+    }
+
+    let started = false;
+    const entry: TranslationQueueEntry = {
+      start: () => {
+        if (signal?.aborted) {
+          reject(createAbortError());
+          drainTranslationQueue();
+          return;
+        }
+
+        started = true;
+        signal?.removeEventListener('abort', handleAbort);
+        activeTranslationCount += 1;
+        Promise.resolve()
+          .then(request)
+          .then(resolve, reject)
+          .finally(() => {
+            activeTranslationCount -= 1;
+            drainTranslationQueue();
+          });
+      },
+    };
+
+    const handleAbort = () => {
+      if (started) return;
+      const index = translationQueue.indexOf(entry);
+      if (index >= 0) translationQueue.splice(index, 1);
+      reject(createAbortError());
+    };
+
+    signal?.addEventListener('abort', handleAbort, { once: true });
+    translationQueue.push(entry);
+    drainTranslationQueue();
+  });
+}
+
+export async function translateChatMessage(
+  content: string,
+  signal?: AbortSignal
+): Promise<ChatTranslation> {
+  const originalContent = content.trim();
+  if (!originalContent) throw new Error('번역할 메시지가 없습니다.');
+
+  return runTranslationLimited(
+    async () => {
+      const result = await withDemoFallback(
+        async () => {
+          const { data } = await apiClient.post(
+            '/api/chat/translate',
+            { content: originalContent, targetLanguage: TRANSLATION_TARGET_LANGUAGE },
+            { signal }
+          );
+          return data;
+        },
+        () =>
+          mockDelay({
+            originalContent,
+            translatedContent: MOCK_TRANSLATIONS[originalContent] ?? originalContent,
+            targetLanguage: TRANSLATION_TARGET_LANGUAGE,
+          })
+      );
+
+      const translatedContent = result?.translatedContent?.trim();
+      if (!translatedContent) throw new Error('번역 결과를 확인할 수 없습니다.');
+
+      return {
+        originalContent: result?.originalContent ?? originalContent,
+        translatedContent,
+        targetLanguage: TRANSLATION_TARGET_LANGUAGE,
+      };
+    },
+    signal
+  );
 }
 
 // ✅ 실제 연동: GET /api/chat/rooms/{roomId}/messages (응답은 배열)
@@ -164,8 +268,6 @@ export async function sendMessage(
         senderName: '',
         profileImageUrl: null,
         content,
-        originalLanguage: 'ko',
-        translatedContent: null,
         sentAt: new Date().toISOString(),
       })
   );

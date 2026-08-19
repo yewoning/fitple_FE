@@ -34,11 +34,21 @@ export interface ChatMessage {
   senderName: string;
   profileImageUrl?: string | null;
   content: string;
-  originalLanguage: string;
-  translatedContent: string | null;
   sentAt: string;
   isMe?: boolean;
   isBot?: boolean;
+}
+
+export interface UserSettings {
+  fontSize?: string;
+  notificationEnabled?: boolean;
+  translationEnabled: boolean;
+}
+
+export interface ChatTranslation {
+  originalContent: string;
+  translatedContent: string;
+  targetLanguage: 'ko';
 }
 
 export interface TeamMember {

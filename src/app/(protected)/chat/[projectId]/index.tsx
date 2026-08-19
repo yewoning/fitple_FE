@@ -13,6 +13,7 @@ import {
   Text,
   TextInput,
   TouchableOpacity,
+  type ViewToken,
   View,
 } from 'react-native';
 
@@ -24,12 +25,17 @@ import {
   useChatMessagesQuery,
   useChatProjectSummary,
   useChatRoomQuery,
+  useChatTranslationQuery,
   useCreateMeetingMinuteMutation,
   useCreateTodayTasksMutation,
   useGenerateRoadmapMutation,
   useSendMessageMutation,
   useTeamMembersQuery,
 } from '@/hooks/useChat';
+import {
+  useUpdateTranslationEnabledMutation,
+  useUserSettingsQuery,
+} from '@/hooks/useSettings';
 import { useAuthStore } from '@/store/auth-store';
 import { ChatMessage, MeetingMinuteDetail, TeamMember } from '@/types';
 
@@ -45,6 +51,14 @@ function formatTime(iso: string) {
 // 새 메시지가 오면 따라 내려갑니다. 위쪽 지난 대화를 읽는 중이면 강제로 끌어내리지 않습니다.
 const AUTO_SCROLL_THRESHOLD = 80;
 
+function haveSameMessageIds(current: ReadonlySet<number>, next: ReadonlySet<number>) {
+  if (current.size !== next.size) return false;
+  for (const messageId of current) {
+    if (!next.has(messageId)) return false;
+  }
+  return true;
+}
+
 const QUICK_ACTIONS = [
   { key: 'meeting', label: '회의록 생성' },
   { key: 'tasks', label: '오늘의 과제 생성' },
@@ -59,6 +73,9 @@ export default function ChatRoomScreen() {
   const queryClient = useQueryClient();
 
   const memberId = useAuthStore((state) => state.memberId);
+  const settingsQuery = useUserSettingsQuery(memberId);
+  const updateTranslationMutation = useUpdateTranslationEnabledMutation(memberId);
+  const translateOn = settingsQuery.isSuccess && settingsQuery.data.translationEnabled;
   const { data: room } = useChatRoomQuery(projectId);
   const roomId = room?.roomId ?? null;
   const projectSummary = useChatProjectSummary(projectId);
@@ -79,7 +96,7 @@ export default function ChatRoomScreen() {
 
   // 핏봇 안내는 서버 채팅에 저장되지 않는 화면 전용 메시지라 별도로 들고 있습니다.
   const [botMessages, setBotMessages] = useState<ChatMessage[]>([]);
-  const [translateOn, setTranslateOn] = useState(true);
+  const [viewableMessageIds, setViewableMessageIds] = useState<ReadonlySet<number>>(new Set());
   const [input, setInput] = useState('');
   const [actionLoading, setActionLoading] = useState<string | null>(null);
   const [meetingPreview, setMeetingPreview] = useState<MeetingMinuteDetail | null>(null);
@@ -93,6 +110,20 @@ export default function ChatRoomScreen() {
   // roomId/memberId가 아직 없을 때 잘못된 URL로 나가지 않도록 여기서 막습니다.
   const canFetchRef = useRef(false);
   canFetchRef.current = roomId != null && memberId != null;
+  const viewabilityConfig = useRef({
+    itemVisiblePercentThreshold: 50,
+    minimumViewTime: 100,
+  }).current;
+  const onViewableItemsChanged = useRef(
+    ({ viewableItems }: { viewableItems: ViewToken[] }) => {
+      const next = new Set<number>();
+      for (const token of viewableItems) {
+        const message = token.item as ChatMessage | undefined;
+        if (message?.messageId != null) next.add(message.messageId);
+      }
+      setViewableMessageIds((current) => (haveSameMessageIds(current, next) ? current : next));
+    }
+  ).current;
 
   // 방에 다시 들어오면(탭 이동 등으로 화면이 살아있는 경우 포함) 즉시 최신 내역을 받습니다.
   useFocusEffect(
@@ -135,6 +166,19 @@ export default function ChatRoomScreen() {
       };
     });
   }, [projectId, memberId, queryClient]);
+
+  useEffect(() => {
+    if (translateOn) return;
+    queryClient.cancelQueries({ queryKey: chatKeys.translations });
+  }, [queryClient, translateOn]);
+
+  const handleTranslationChange = (next: boolean) => {
+    updateTranslationMutation.mutate(next, {
+      onError: () => {
+        Alert.alert('설정 저장 실패', '번역 설정을 저장하지 못했어요. 잠시 후 다시 시도해 주세요.');
+      },
+    });
+  };
 
   const handleScroll = (event: NativeSyntheticEvent<NativeScrollEvent>) => {
     const { layoutMeasurement, contentOffset, contentSize } = event.nativeEvent;
@@ -182,8 +226,6 @@ export default function ChatRoomScreen() {
         senderId: -1,
         senderName: '핏봇',
         content,
-        originalLanguage: 'ko',
-        translatedContent: null,
         sentAt: new Date().toISOString(),
         isBot: true,
       },
@@ -216,7 +258,11 @@ export default function ChatRoomScreen() {
       header={{
         title: projectSummary?.projectName ?? '채팅방',
         showBack: true,
-        translation: { enabled: translateOn, onChange: setTranslateOn },
+        translation: {
+          enabled: translateOn,
+          disabled: !settingsQuery.isSuccess || updateTranslationMutation.isPending,
+          onChange: handleTranslationChange,
+        },
         showMore: true,
         onMorePress: () =>
           router.push({ pathname: '/chat/[projectId]/settings', params: { projectId: projectIdParam } }),
@@ -232,13 +278,17 @@ export default function ChatRoomScreen() {
         <FlatList
           ref={listRef}
           data={visibleMessages}
+          extraData={viewableMessageIds}
           keyExtractor={(item) => String(item.messageId)}
           contentContainerClassName="gap-3 p-4"
           onScroll={handleScroll}
           scrollEventThrottle={16}
           onContentSizeChange={handleContentSizeChange}
+          onViewableItemsChanged={onViewableItemsChanged}
+          viewabilityConfig={viewabilityConfig}
           renderItem={({ item }) => (
             <MessageBubble
+              isVisible={viewableMessageIds.has(item.messageId)}
               message={item}
               translateOn={translateOn}
               senderName={item.senderName || memberNameById.get(item.senderId) || '팀원'}
@@ -369,14 +419,23 @@ function MeetingMinutePreviewSheet({
 }
 
 function MessageBubble({
+  isVisible,
   message,
   translateOn,
   senderName,
 }: {
+  isVisible: boolean;
   message: ChatMessage;
   translateOn: boolean;
   senderName: string;
 }) {
+  const [showOriginal, setShowOriginal] = useState(false);
+  const translationQuery = useChatTranslationQuery(message, translateOn && isVisible);
+
+  useEffect(() => {
+    if (!translateOn) setShowOriginal(false);
+  }, [translateOn]);
+
   if (message.isBot) {
     return (
       <View className="max-w-[90%] flex-row gap-2 self-center">
@@ -402,30 +461,72 @@ function MessageBubble({
     );
   }
 
-  const showTranslation = translateOn && message.translatedContent;
+  const translatedContent = translationQuery.data?.translatedContent.trim();
+  const hasDistinctTranslation =
+    translateOn &&
+    Boolean(translatedContent) &&
+    translatedContent !== message.content.trim();
+  const isTranslating = translateOn && isVisible && translationQuery.isFetching;
+  const translationFailed =
+    translateOn && isVisible && translationQuery.isError && !translationQuery.isFetching;
 
   return (
     <View className="max-w-[85%] flex-row gap-2">
       <Avatar uri={message.profileImageUrl} size={32} />
       <View className="flex-1 gap-1.5">
         <Text className="mb-1 font-sans text-[11px] text-gray-6">{senderName}</Text>
-        <View className="flex-row items-end gap-1.5">
-          <View className="shrink rounded-2xl rounded-bl-sm bg-white px-3.5 py-2.5">
-            <Text className="font-sans text-[15px] text-black">{message.content}</Text>
-          </View>
-          {!showTranslation ? (
-            <Text className="font-sans text-[11px] text-gray-4">{formatTime(message.sentAt)}</Text>
-          ) : null}
-        </View>
-
-        {showTranslation ? (
-          <View className="flex-row items-end gap-1.5">
-            <View className="shrink rounded-2xl rounded-bl-sm bg-white-dark-sky-blue px-3.5 py-2.5">
-              <Text className="font-sans text-[15px] text-dark-blue">{message.translatedContent}</Text>
+        {hasDistinctTranslation ? (
+          <View className="gap-1.5">
+            <View className="flex-row items-end gap-1.5">
+              <TouchableOpacity
+                accessibilityLabel={showOriginal ? '원문 접기' : '원문 보기'}
+                accessibilityRole="button"
+                activeOpacity={0.75}
+                className="shrink rounded-2xl rounded-bl-sm bg-white-dark-sky-blue px-3.5 py-2.5"
+                onPress={() => setShowOriginal((current) => !current)}
+              >
+                <Text className="font-sans text-[15px] text-dark-blue">{translatedContent}</Text>
+                <Text className="mt-1 font-sans-medium text-[10px] text-gray-5">
+                  {showOriginal ? '원문 접기' : '원문 보기'}
+                </Text>
+              </TouchableOpacity>
+              <Text className="font-sans text-[11px] text-gray-4">{formatTime(message.sentAt)}</Text>
             </View>
-            <Text className="font-sans text-[11px] text-gray-4">{formatTime(message.sentAt)}</Text>
+            {showOriginal ? (
+              <View className="shrink self-start rounded-2xl rounded-bl-sm bg-white px-3.5 py-2.5">
+                <Text className="font-sans text-[15px] text-black">{message.content}</Text>
+              </View>
+            ) : null}
           </View>
-        ) : null}
+        ) : (
+          <View className="gap-1">
+            <View className="flex-row items-end gap-1.5">
+              <View className="shrink rounded-2xl rounded-bl-sm bg-white px-3.5 py-2.5">
+                <Text className="font-sans text-[15px] text-black">{message.content}</Text>
+              </View>
+              {!isTranslating && !translationFailed ? (
+                <Text className="font-sans text-[11px] text-gray-4">{formatTime(message.sentAt)}</Text>
+              ) : null}
+            </View>
+            {isTranslating ? (
+              <Text className="font-sans text-[11px] text-gray-4">번역 중...</Text>
+            ) : null}
+            {translationFailed ? (
+              <View className="flex-row items-center gap-2">
+                <Text className="font-sans text-[11px] text-gray-4">번역하지 못했어요.</Text>
+                <TouchableOpacity
+                  accessibilityLabel="번역 재시도"
+                  accessibilityRole="button"
+                  hitSlop={6}
+                  onPress={() => translationQuery.refetch()}
+                >
+                  <Text className="font-sans-semibold text-[11px] text-dark-blue">재시도</Text>
+                </TouchableOpacity>
+                <Text className="font-sans text-[11px] text-gray-4">{formatTime(message.sentAt)}</Text>
+              </View>
+            ) : null}
+          </View>
+        )}
       </View>
     </View>
   );
