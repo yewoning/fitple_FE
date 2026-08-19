@@ -68,12 +68,27 @@ async function fetchJson(path: string, init?: RequestInit): Promise<{ response: 
     throw new ApiError(NETWORK_ERROR_MESSAGE);
   }
 
-  let body: unknown;
+  // 응답 본문을 먼저 텍스트로 읽습니다. 스크랩 추가/삭제처럼 성공 시 본문이 아예 없는
+  // 엔드포인트도 있는데, 그런 경우 곧바로 response.json()을 부르면 "Unexpected end of
+  // JSON input"으로 실패해서 성공한 요청도 에러로 보였습니다(예: 스크랩은 실제로 잘 됐는데
+  // 화면엔 "서버 응답을 확인할 수 없습니다"만 뜸). 본문이 비어있으면 body를 undefined로 두고,
+  // 진짜 내용이 있는데 JSON이 아닐 때만 파싱 에러로 처리합니다.
+  let text: string;
 
   try {
-    body = await response.json();
+    text = await response.text();
   } catch {
-    throw new ApiError(INVALID_RESPONSE_MESSAGE, response.status);
+    throw new ApiError(NETWORK_ERROR_MESSAGE);
+  }
+
+  let body: unknown;
+
+  if (text.length > 0) {
+    try {
+      body = JSON.parse(text);
+    } catch {
+      throw new ApiError(INVALID_RESPONSE_MESSAGE, response.status);
+    }
   }
 
   return { response, body };

@@ -320,16 +320,14 @@ export function ProjectDetailScreen({ projectId }: ProjectDetailScreenProps) {
                 accessibilityLabel="북마크"
                 accessibilityRole="button"
                 accessibilityState={{ selected: isBookmarked }}
-                className={`h-[52px] w-[52px] items-center justify-center rounded-full ${
-                  isBookmarked ? 'bg-sky-blue' : 'bg-white'
-                }`}
+                className="h-[52px] w-[52px] items-center justify-center rounded-full bg-white"
                 onPress={handleBookmarkPress}
                 style={({ pressed }) => ({ opacity: pressed ? 0.7 : 1 })}
               >
                 <Image
                   source={require('../../assets/icons/bookmark.png')}
                   resizeMode="contain"
-                  style={{ width: 22, height: 22, tintColor: isBookmarked ? '#ffffff' : undefined }}
+                  style={{ width: 22, height: 22, tintColor: isBookmarked ? '#4876ee' : undefined }}
                 />
               </Pressable>
 
