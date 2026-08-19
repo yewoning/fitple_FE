@@ -1,4 +1,5 @@
 import { Ionicons } from '@expo/vector-icons';
+import { useQueryClient } from '@tanstack/react-query';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';
 import {
@@ -16,6 +17,7 @@ import {
 import { CommonLayout } from '@/components/layout';
 import { Avatar } from '@/components/ui/avatar';
 import {
+  chatKeys,
   useChatMessagesQuery,
   useChatRoomQuery,
   useCreateMeetingMinuteMutation,
@@ -44,6 +46,7 @@ export default function ChatRoomScreen() {
   const projectId = Number(projectIdParam);
   const router = useRouter();
   const listRef = useRef<FlatList>(null);
+  const queryClient = useQueryClient();
 
   const { data: room } = useChatRoomQuery(projectId);
   const { data: messageData } = useChatMessagesQuery(projectId);
@@ -61,6 +64,20 @@ export default function ChatRoomScreen() {
   useEffect(() => {
     if (messageData?.messages) setMessages(messageData.messages);
   }, [messageData]);
+
+  // 채팅방에 들어오면 채팅 목록 화면의 안읽음 뱃지를 0으로 지워줍니다.
+  // (실제 '읽음 처리' API가 따로 없어서, 목록 캐시를 직접 갱신하는 방식으로 처리)
+  useEffect(() => {
+    queryClient.setQueryData(chatKeys.projects, (old: any) => {
+      if (!old?.projects) return old;
+      return {
+        ...old,
+        projects: old.projects.map((p: any) =>
+          p.projectId === projectId ? { ...p, unreadCount: 0 } : p
+        ),
+      };
+    });
+  }, [projectId, queryClient]);
 
   const handleSend = () => {
     const content = input.trim();

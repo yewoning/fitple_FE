@@ -147,6 +147,24 @@ export async function createTodayTasks(projectId: number) {
   return { tasks: mapTasks(data) };
 }
 
+// ✅ 실제 연동: PATCH /api/tasks/chat/rooms/{projectId}/tasks/{taskId}?status=
+// 과제 체크박스 토글 시 서버에 상태를 저장해서, 화면을 나갔다 들어와도 유지되도록 합니다.
+export async function updateTaskStatus(
+  projectId: number,
+  taskId: number,
+  status: 'TODO' | 'IN_PROGRESS' | 'DONE'
+) {
+  if (!USE_REAL_API_FOR_READY_ENDPOINTS) {
+    return mockDelay({ success: true });
+  }
+  const { data } = await apiClient.patch(
+    `/api/tasks/chat/rooms/${projectId}/tasks/${taskId}`,
+    null,
+    { params: { status } }
+  );
+  return data;
+}
+
 // ✅ 실제 연동: GET /api/tasks/chat/rooms/{projectId}/tasks (memberId 없이 프로젝트 전체 과제 조회)
 export async function getTodayTasks(projectId: number, status: 'ALL' | 'TODO' | 'DONE' = 'ALL') {
   if (!USE_REAL_API_FOR_READY_ENDPOINTS) {

@@ -13,7 +13,9 @@ import {
   getTeamMembers,
   getTodayTasks,
   sendMessage,
+  updateTaskStatus,
 } from '@/api/chat';
+import type { TaskStatus } from '@/types';
 
 export const chatKeys = {
   projects: ['chat', 'projects'] as const,
@@ -96,6 +98,17 @@ export function useTodayTasksQuery(projectId: number, status: 'ALL' | 'TODO' | '
   return useQuery({
     queryKey: [...chatKeys.tasks(projectId), status],
     queryFn: () => getTodayTasks(projectId, status),
+  });
+}
+
+export function useUpdateTaskStatusMutation(projectId: number) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ taskId, status }: { taskId: number; status: TaskStatus }) =>
+      updateTaskStatus(projectId, taskId, status),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: chatKeys.tasks(projectId) });
+    },
   });
 }
 

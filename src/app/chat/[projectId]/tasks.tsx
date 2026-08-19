@@ -4,7 +4,7 @@ import { FlatList, Text, TouchableOpacity, View } from 'react-native';
 
 import { CommonLayout } from '@/components/layout';
 import { SegmentedTabs } from '@/components/ui/segmented-tabs';
-import { useTodayTasksQuery } from '@/hooks/useChat';
+import { useTodayTasksQuery, useUpdateTaskStatusMutation } from '@/hooks/useChat';
 import { TodayTask } from '@/types';
 
 type FilterKey = 'ALL' | 'TODO' | 'DONE';
@@ -15,6 +15,7 @@ export default function ProjectTodayTasksScreen() {
   const { projectId: projectIdParam } = useLocalSearchParams<{ projectId: string }>();
   const projectId = Number(projectIdParam);
   const { data } = useTodayTasksQuery(projectId, 'ALL');
+  const updateTaskStatusMutation = useUpdateTaskStatusMutation(projectId);
   const [tasks, setTasks] = useState<TodayTask[]>([]);
   const [filter, setFilter] = useState<FilterKey>('ALL');
 
@@ -36,10 +37,14 @@ export default function ProjectTodayTasksScreen() {
     [tasks]
   );
 
+  // 체크박스를 누르면 화면에서 바로 상태를 바꾸고(낙관적 업데이트), 동시에 서버에도 저장해서
+  // 화면을 나갔다 들어와도 상태가 유지되도록 합니다.
   const toggleTask = (taskId: number) => {
-    setTasks((prev) =>
-      prev.map((t) => (t.taskId === taskId ? { ...t, status: t.status === 'DONE' ? 'TODO' : 'DONE' } : t))
-    );
+    const target = tasks.find((t) => t.taskId === taskId);
+    if (!target) return;
+    const nextStatus = target.status === 'DONE' ? 'TODO' : 'DONE';
+    setTasks((prev) => prev.map((t) => (t.taskId === taskId ? { ...t, status: nextStatus } : t)));
+    updateTaskStatusMutation.mutate({ taskId, status: nextStatus });
   };
 
   return (
