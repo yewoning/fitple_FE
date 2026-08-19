@@ -1,5 +1,6 @@
 import { createStore } from 'zustand/vanilla';
 import { mockChatProjects, mockTodayTasks } from '@/api/mockData';
+import { formatDDayValue } from '@/utils/dday';
 import { DEMO_PROJECTS, DEMO_USERS, getDemoUser, type DemoProjectRecord } from '@/mocks/fixtures';
 import type { SubmitApplicationRequest, SubmitApplicationResponse } from '@/types/application';
 import type { MemberProfile } from '@/types/member';
@@ -38,6 +39,7 @@ interface DemoState {
   updateProject: (projectId: number, payload: ProjectUpdateRequest) => void;
   deleteProject: (projectId: number) => void;
   addScrap: (projectId: number) => void;
+  removeScrap: (projectId: number) => void;
   submitApplication: (
     projectId: number,
     memberId: number,
@@ -122,6 +124,11 @@ export const demoStore = createStore<DemoState>((set, get) => ({
       scrappedProjectIds: state.scrappedProjectIds.includes(projectId)
         ? state.scrappedProjectIds
         : [...state.scrappedProjectIds, projectId],
+    }));
+  },
+  removeScrap: (projectId) => {
+    set((state) => ({
+      scrappedProjectIds: state.scrappedProjectIds.filter((id) => id !== projectId),
     }));
   },
   submitApplication: (projectId, memberId, payload) => {
@@ -228,6 +235,29 @@ export function getDemoRecruitingProjects(): RecruitingProjectListItem[] {
       dday: detail.dday,
       status: detail.status,
       imageUrl: detail.imageUrl,
+    }));
+}
+
+// 실제 GET /api/mypage/scraps 응답 모양(services/project.ts의 ScrapProjectItem 참고)에 맞춰서
+// 목업도 같은 필드(recruitRoles/recruitStatus/dDay/projectIconUrl)로 내려준다.
+const DEMO_STATUS_TO_RECRUIT_STATUS_LABEL: Record<string, string> = {
+  RECRUITING: '모집중',
+  IN_PROGRESS: '진행중',
+  CLOSED: '완료',
+};
+
+// 마이페이지 > 스크랩 화면용 목업. scrappedProjectIds에 있는 프로젝트만 골라서 보여준다.
+export function getDemoScraps() {
+  const { scrappedProjectIds, projects } = demoStore.getState();
+  return projects
+    .filter((project) => scrappedProjectIds.includes(project.detail.projectId))
+    .map(({ detail }) => ({
+      projectId: detail.projectId,
+      title: detail.title,
+      recruitRoles: detail.roles,
+      recruitStatus: DEMO_STATUS_TO_RECRUIT_STATUS_LABEL[detail.status] ?? '모집중',
+      dDay: typeof detail.dday === 'number' ? formatDDayValue(detail.dday) : null,
+      projectIconUrl: detail.imageUrl,
     }));
 }
 

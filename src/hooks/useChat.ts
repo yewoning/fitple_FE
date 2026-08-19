@@ -16,6 +16,7 @@ import {
   updateTaskStatus,
 } from '@/api/chat';
 import type { TaskStatus } from '@/types';
+import { useAuthStore } from '@/store/auth-store';
 
 export const chatKeys = {
   projects: ['chat', 'projects'] as const,
@@ -29,10 +30,14 @@ export const chatKeys = {
   roadmap: (projectId: number) => ['chat', 'roadmap', projectId] as const,
 };
 
+// memberId는 로그인할 때 store에 저장됩니다(로그인 응답에 이제 memberId가 옵니다).
+// 아직 로그인 전(memberId가 없음)이면 API를 부르지 않고 로딩 상태로만 둡니다.
 export function useChatProjectsQuery() {
+  const memberId = useAuthStore((state) => state.memberId);
   return useQuery({
-    queryKey: chatKeys.projects,
-    queryFn: getChatProjects,
+    queryKey: [...chatKeys.projects, memberId],
+    queryFn: () => getChatProjects(memberId),
+    enabled: memberId != null,
   });
 }
 

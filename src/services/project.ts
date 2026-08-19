@@ -7,6 +7,7 @@ import {
   getDemoProjectMembers,
   getDemoRecommendedProjects,
   getDemoRecruitingProjects,
+  getDemoScraps,
 } from '@/mocks/demo-store';
 import { withDemoFallback } from '@/services/demo-fallback';
 import type {
@@ -201,6 +202,77 @@ export function addScrap(memberId: number, projectId: string | number) {
         { method: 'POST' },
       ),
     () => demoStore.getState().addScrap(Number(projectId)),
+  );
+}
+
+export function removeScrap(memberId: number, projectId: string | number) {
+  return withDemoFallback(
+    () =>
+      requestRaw<undefined>(
+        `/api/mypage/scraps?memberId=${memberId}&projectId=${projectId}`,
+        { method: 'DELETE' },
+      ),
+    () => demoStore.getState().removeScrap(Number(projectId)),
+  );
+}
+
+/**
+ * GET /api/mypage/scraps?memberId= — 내가 스크랩한 프로젝트 목록.
+ *
+ * ⚠️ 실제 응답은 api.json 문서의 ScrapListResponse(ProjectResponse[])와 필드가 완전히 다르다.
+ * 실제로 관측된 응답: { projects: [{ projectId, title, recruitRoles, recruitStatus(한글
+ * 라벨, 예: "모집중"), dDay(이미 "D-14" 형태 문자열), projectIconUrl }] }.
+ * RecruitingProjectListItem(roles/status/imageUrl/dday)과 이름이 달라서 그대로 재사용하면
+ * roles.join 같은 곳에서 터진다. 여기서만 쓰는 별도 타입 + 변환 함수(toScrapCardData)로 처리한다.
+ */
+export interface ScrapProjectItem {
+  projectId: number;
+  title: string;
+  recruitRoles: string[];
+  recruitStatus: string;
+  dDay: string | null;
+  projectIconUrl: string | null;
+}
+
+// StatusBadge(components/project-card.tsx)가 쓰는 한글 라벨과 맞춰뒀다. "모집중"은 실제
+// 응답에서 확인됐고, 나머지는 그 라벨 세트를 그대로 따른다는 가정이라 백엔드팀 확인이 필요하다.
+const RECRUIT_STATUS_LABEL_TO_PROJECT_STATUS: Record<string, ProjectStatus> = {
+  모집중: 'recruiting',
+  모집완료: 'recruit-closed',
+  진행중: 'in-progress',
+  완료: 'completed',
+};
+
+/** "D-14" / "D-DAY" / "D+3" → 14 / 0 / -3. 형식이 다르면 undefined. */
+function parseDDayLabel(label: string | null | undefined): number | undefined {
+  if (!label) return undefined;
+  if (label === 'D-DAY') return 0;
+  const match = label.match(/^D([+-])(\d+)$/);
+  if (!match) return undefined;
+  const value = Number(match[2]);
+  return match[1] === '-' ? value : -value;
+}
+
+export function toScrapCardData(item: ScrapProjectItem): RecruitingProjectCardData {
+  return {
+    id: String(item.projectId),
+    projectName: item.title,
+    status: RECRUIT_STATUS_LABEL_TO_PROJECT_STATUS[item.recruitStatus] ?? 'recruiting',
+    subInfo: (item.recruitRoles ?? []).join(' · '),
+    dDay: parseDDayLabel(item.dDay),
+    imageUrl: item.projectIconUrl,
+  };
+}
+
+export function getScraps(memberId: number) {
+  return withDemoFallback(
+    async () => {
+      const { projects } = await requestRaw<{ projects: ScrapProjectItem[] }>(
+        `/api/mypage/scraps?memberId=${memberId}`,
+      );
+      return projects ?? [];
+    },
+    () => getDemoScraps(),
   );
 }
 
