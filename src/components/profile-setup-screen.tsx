@@ -311,7 +311,7 @@ export function ProfileSetupScreen() {
       header={{
         title: '핏봇',
         showBack: true,
-        onBackPress: () => router.replace('/auth-complete' as Href),
+        onBackPress: () => router.replace('/home' as Href),
       }}
       bottomNav={false}
     >
