@@ -23,6 +23,6 @@ export interface SignupResponse {
 
 export interface SigninResponse {
   success: boolean;
+  memberId: number;
   message: string;
-  memberId?: number;
 }
