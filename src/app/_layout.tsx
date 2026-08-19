@@ -1,8 +1,9 @@
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { Stack } from 'expo-router';
 import { useFonts } from 'expo-font';
 import { StatusBar } from 'expo-status-bar';
 import * as SplashScreen from 'expo-splash-screen';
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import '../../global.css';
 
 SplashScreen.preventAutoHideAsync().catch(() => undefined);
@@ -14,6 +15,7 @@ export default function RootLayout() {
     'Pretendard-SemiBold': require('pretendard/dist/public/static/alternative/Pretendard-SemiBold.ttf'),
     'Pretendard-Bold': require('pretendard/dist/public/static/alternative/Pretendard-Bold.ttf'),
   });
+  const [queryClient] = useState(() => new QueryClient());
 
   useEffect(() => {
     if (fontsLoaded || fontError) {
@@ -30,9 +32,9 @@ export default function RootLayout() {
   }
 
   return (
-    <>
+    <QueryClientProvider client={queryClient}>
       <Stack screenOptions={{ headerShown: false }} />
       <StatusBar style="dark" />
-    </>
+    </QueryClientProvider>
   );
 }

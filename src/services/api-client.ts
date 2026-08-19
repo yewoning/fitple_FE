@@ -40,6 +40,7 @@ async function fetchJson(path: string, init?: RequestInit): Promise<{ response: 
   try {
     response = await fetch(`${getApiBaseUrl()}${path}`, {
       ...init,
+      credentials: 'include',
       headers: {
         Accept: 'application/json',
         ...init?.headers,
