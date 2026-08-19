@@ -77,6 +77,7 @@ src/
 ```
 
 - `src/app`의 파일은 화면 진입점과 라우팅만 담당하며 복잡한 UI나 로직을 직접 담지 않습니다.
+- 인증 전 화면은 `src/app/(public)`, 로그인 후 기능 화면은 `src/app/(protected)`에 추가합니다. 보호 그룹에 추가된 라우트는 중앙 로그인 가드의 적용을 받습니다.
 - 공통 React Hook이 필요해지면 `src/hooks`에 추가합니다.
 - API와 로컬 저장소 연동은 `src/services`에 추가합니다.
 - 앱 전체 전역 상태가 필요해지면 `src/store`를 만들고, 그전에는 React의 지역 상태와 Context를 사용합니다.
