@@ -10,6 +10,10 @@ export const API_BASE_URL =
 export const apiClient = create({
   baseURL: API_BASE_URL,
   timeout: 10000,
+  // ⚠️ 로그인 세션(쿠키)을 같이 보내야 GET /api/profile 같은 "로그인한 나" 기준 API가 동작합니다.
+  // services/api-client.ts의 fetchJson은 credentials:'include'로 이미 세션을 보내는데,
+  // 이 axios 인스턴스만 빠져있어서 로그인해도 로그인 안 한 것처럼 401/404가 났었습니다.
+  withCredentials: true,
   headers: {
     'Content-Type': 'application/json',
   },

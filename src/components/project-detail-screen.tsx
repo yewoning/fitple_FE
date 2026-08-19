@@ -3,16 +3,17 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { type Href, useRouter } from 'expo-router';
 import { ActivityIndicator, Animated, Image, Pressable, ScrollView, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { useQueryClient } from '@tanstack/react-query';
 import { PrimaryButton } from '@/components/primary-button';
 import { StatusBadge } from '@/components/project-card';
-import { useApplicationsQuery } from '@/hooks/useMypage';
+import { mypageKeys, useApplicationsQuery } from '@/hooks/useMypage';
 import { ApiError } from '@/services/api-client';
 import {
   API_STATUS_TO_PROJECT_STATUS,
   addScrap,
   deleteProject,
-  getScrappedProjectIds,
   getProject,
+  getScraps,
   removeScrap,
   resolveDDay,
 } from '@/services/project';
@@ -41,6 +42,7 @@ function getDetailDDayText(project: ProjectDetailResponse): string | null {
 
 export function ProjectDetailScreen({ projectId }: ProjectDetailScreenProps) {
   const router = useRouter();
+  const queryClient = useQueryClient();
   const memberId = useAuthStore((state) => state.memberId);
   const cachedInvite = useProjectInviteStore((state) =>
     projectId ? state.invites[projectId] : undefined
@@ -53,6 +55,7 @@ export function ProjectDetailScreen({ projectId }: ProjectDetailScreenProps) {
   const [loadError, setLoadError] = useState<string | null>(null);
   const [isBookmarked, setIsBookmarked] = useState(false);
   const [isBookmarkUpdating, setIsBookmarkUpdating] = useState(false);
+  const [bookmarkError, setBookmarkError] = useState<string | null>(null);
 
   const [showMenu, setShowMenu] = useState(false);
   const [menuMode, setMenuMode] = useState<'actions' | 'confirmDelete'>('actions');
@@ -70,26 +73,37 @@ export function ProjectDetailScreen({ projectId }: ProjectDetailScreenProps) {
       const detail = await getProject(projectId);
       setProject(detail);
 
-      if (memberId !== null) {
-        try {
-          const scrappedProjectIds = await getScrappedProjectIds(memberId);
-          setIsBookmarked(scrappedProjectIds.includes(detail.projectId));
-        } catch {
-          // 북마크 조회 실패는 프로젝트 상세 조회를 막지 않는다.
-          setIsBookmarked(false);
-        }
-      }
     } catch (error) {
       setProject(null);
       setLoadError(error instanceof ApiError ? error.message : LOAD_ERROR_MESSAGE);
     } finally {
       setIsLoading(false);
     }
-  }, [memberId, projectId]);
+  }, [projectId]);
 
   useEffect(() => {
     loadProject();
   }, [loadProject]);
+
+  // 상세 화면엔 "내가 이미 스크랩했는지" 알려주는 필드가 따로 없어서, 진짜 상태를
+  // 스크랩 목록에서 직접 확인해 버튼 색을 맞춥니다. 이걸 안 하면 이미 스크랩한 프로젝트인데도
+  // 버튼이 항상 흰색으로 보여서, 다시 누르면 "이미 스크랩한 프로젝트입니다"로 막히기만 합니다.
+  useEffect(() => {
+    if (!project || memberId === null) return;
+    let cancelled = false;
+    getScraps(memberId)
+      .then((items) => {
+        if (!cancelled) {
+          setIsBookmarked(items.some((item) => item.projectId === project.projectId));
+        }
+      })
+      .catch(() => {
+        // 실패해도 상세 화면 자체는 그대로 보여주고, 버튼은 안 눌린 상태로 둡니다.
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [project, memberId]);
 
   useEffect(() => {
     if (!showMenu) return;
@@ -147,11 +161,14 @@ export function ProjectDetailScreen({ projectId }: ProjectDetailScreenProps) {
     }
   }
 
+  // 스크랩 버튼을 다시 누르면 취소도 되도록 토글로 동작합니다. 성공하면 마이페이지 >
+  // 스크랩 화면 캐시도 같이 갱신해서, 스크랩하자마자/취소하자마자 거기에 바로 반영됩니다.
   async function handleBookmarkPress() {
     if (!project || memberId === null || isBookmarkUpdating) return;
     const previousIsBookmarked = isBookmarked;
     const nextIsBookmarked = !previousIsBookmarked;
     setIsBookmarkUpdating(true);
+    setBookmarkError(null);
     setIsBookmarked(nextIsBookmarked);
 
     try {
@@ -160,9 +177,20 @@ export function ProjectDetailScreen({ projectId }: ProjectDetailScreenProps) {
       } else {
         await removeScrap(memberId, project.projectId);
       }
+      queryClient.invalidateQueries({ queryKey: mypageKeys.scraps });
     } catch (error) {
+      if (error instanceof ApiError && error.status === 403) {
+        queryClient.invalidateQueries({ queryKey: mypageKeys.scraps });
+        return;
+      }
       setIsBookmarked(previousIsBookmarked);
-      setMenuError(error instanceof ApiError ? error.message : '북마크하지 못했습니다.');
+      setBookmarkError(
+        error instanceof ApiError
+          ? error.message
+          : nextIsBookmarked
+            ? '스크랩하지 못했습니다.'
+            : '스크랩 취소하지 못했습니다.'
+      );
     } finally {
       setIsBookmarkUpdating(false);
     }
@@ -302,6 +330,10 @@ export function ProjectDetailScreen({ projectId }: ProjectDetailScreenProps) {
               </View>
             </View>
 
+            {bookmarkError ? (
+              <Text className="mt-4 font-sans text-xs text-red-600">{bookmarkError}</Text>
+            ) : null}
+
             <View className="mt-6 flex-row items-center gap-2">
               <Pressable
                 accessibilityLabel="북마크"
@@ -312,10 +344,10 @@ export function ProjectDetailScreen({ projectId }: ProjectDetailScreenProps) {
                 onPress={handleBookmarkPress}
                 style={({ pressed }) => ({ opacity: pressed ? 0.7 : 1 })}
               >
-                <Ionicons
-                  name={isBookmarked ? 'bookmark' : 'bookmark-outline'}
-                  size={22}
-                  color={isBookmarked ? '#0169ff' : '#484d5a'}
+                <Image
+                  source={require('../../assets/icons/bookmark.png')}
+                  resizeMode="contain"
+                  style={{ width: 22, height: 22, tintColor: isBookmarked ? '#4876ee' : undefined }}
                 />
               </Pressable>
 

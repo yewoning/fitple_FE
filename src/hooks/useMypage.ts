@@ -4,6 +4,8 @@ import { updateTaskStatus } from '@/api/chat';
 import { getMyTodayTasks, getResumeVersions, getScraps } from '@/api/mypage';
 import { getProfile } from '@/api/profile';
 import { getMyApplications } from '@/services/application';
+import { addScrap, removeScrap } from '@/services/project';
+import { useAuthStore } from '@/store/auth-store';
 import type { TaskStatus } from '@/types';
 import { chatKeys } from './useChat';
 
@@ -23,9 +25,35 @@ export function useProfileQuery() {
 }
 
 export function useScrapsQuery() {
+  const memberId = useAuthStore((state) => state.memberId);
   return useQuery({
-    queryKey: mypageKeys.scraps,
-    queryFn: getScraps,
+    queryKey: [...mypageKeys.scraps, memberId],
+    queryFn: () => getScraps(memberId),
+    enabled: memberId != null,
+  });
+}
+
+// 프로젝트 상세 화면의 스크랩(저장) 버튼에서 씁니다. 성공하면 마이페이지 스크랩 목록도
+// 같이 최신화해서, 스크랩하자마자/취소하자마자 마이페이지에 바로 반영되게 합니다.
+export function useAddScrapMutation() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ memberId, projectId }: { memberId: number; projectId: string | number }) =>
+      addScrap(memberId, projectId),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: mypageKeys.scraps });
+    },
+  });
+}
+
+export function useRemoveScrapMutation() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ memberId, projectId }: { memberId: number; projectId: string | number }) =>
+      removeScrap(memberId, projectId),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: mypageKeys.scraps });
+    },
   });
 }
 
