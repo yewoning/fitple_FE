@@ -1,3 +1,4 @@
+import { Ionicons } from '@expo/vector-icons';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { type Href, useRouter } from 'expo-router';
 import { ActivityIndicator, Animated, Image, Pressable, ScrollView, Text, View } from 'react-native';
@@ -268,16 +269,14 @@ export function ProjectDetailScreen({ projectId }: ProjectDetailScreenProps) {
                 accessibilityLabel="북마크"
                 accessibilityRole="button"
                 accessibilityState={{ selected: isBookmarked }}
-                className={`h-[52px] w-[52px] items-center justify-center rounded-full ${
-                  isBookmarked ? 'bg-sky-blue' : 'bg-white'
-                }`}
+                className="h-[52px] w-[52px] items-center justify-center rounded-full bg-white"
                 onPress={handleBookmarkPress}
                 style={({ pressed }) => ({ opacity: pressed ? 0.7 : 1 })}
               >
-                <Image
-                  source={require('../../assets/icons/bookmark.png')}
-                  resizeMode="contain"
-                  style={{ width: 22, height: 22, tintColor: isBookmarked ? '#ffffff' : undefined }}
+                <Ionicons
+                  name={isBookmarked ? 'bookmark' : 'bookmark-outline'}
+                  size={22}
+                  color={isBookmarked ? '#0169ff' : '#484d5a'}
                 />
               </Pressable>
 
@@ -288,11 +287,7 @@ export function ProjectDetailScreen({ projectId }: ProjectDetailScreenProps) {
                 onPress={handleSharePress}
                 style={({ pressed }) => ({ opacity: pressed ? 0.7 : 1 })}
               >
-                <Image
-                  source={require('../../assets/icons/share.png')}
-                  resizeMode="contain"
-                  style={{ width: 22, height: 22 }}
-                />
+                <Ionicons name="share-outline" size={22} color="#484d5a" />
               </Pressable>
 
               <View className="flex-1">
