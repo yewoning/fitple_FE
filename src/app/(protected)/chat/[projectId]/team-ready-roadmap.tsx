@@ -51,7 +51,7 @@ export default function TeamReadyRoadmapScreen() {
       <View className="min-h-0 flex-1 bg-gray-1">
         <View className="mb-[22px] mt-6 pl-[45px]">
           <Image
-            source={require('../../../../assets/images/logo.webp')}
+            source={require('../../../../../assets/images/logo.webp')}
             accessibilityLabel="fitple"
             resizeMode="contain"
             style={{ width: 42, height: 62, marginLeft: -22, marginBottom: -22 }}
@@ -121,7 +121,7 @@ function BotMessage({ text }: { text: string }) {
   return (
     <View className="max-w-[90%] flex-row gap-2 self-center">
       <Image
-        source={require('../../../../assets/icons/metalchat.webp')}
+        source={require('../../../../../assets/icons/metalchat.webp')}
         accessibilityLabel="핏봇"
         resizeMode="contain"
         style={{ width: 28, height: 28 }}

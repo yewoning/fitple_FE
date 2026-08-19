@@ -130,7 +130,10 @@ export function ProjectCreateScreen() {
   }
 
   async function createProjectAndNavigate(result: ProjectAiGenerateResponse) {
-    if (memberId === null) return;
+    if (memberId === null) {
+      setFormError('로그인 정보를 확인할 수 없습니다. 다시 로그인해주세요.');
+      return;
+    }
     setIsSubmitting(true);
     setFormError(null);
 
@@ -377,6 +380,7 @@ export function ProjectCreateScreen() {
             </Text>
           </View>
 
+          <ScrollView style={{ maxHeight: 480 }} showsVerticalScrollIndicator={false}>
           <View className="mt-5 rounded-2xl bg-white p-4">
             <View className="flex-row items-center gap-1.5">
               <Image
@@ -422,6 +426,7 @@ export function ProjectCreateScreen() {
           <View className="mt-5">
             <PrimaryButton label="완료하기" loading={isSubmitting} onPress={handleSheetSubmit} />
           </View>
+          </ScrollView>
           </View>
           </View>
         </Animated.View>
