@@ -3,6 +3,7 @@ import { AuthScreenLayout } from "@/components/auth-screen-layout";
 import { PrimaryButton } from "@/components/primary-button";
 import { ApiError } from "@/services/api-client";
 import { signin } from "@/services/auth";
+import { getProfile } from "@/services/profile";
 import { useAuthStore } from "@/store/auth-store";
 import { LOGIN_ID_MESSAGE, LOGIN_ID_PATTERN } from "@/utils/auth-validation";
 import { type Href, useLocalSearchParams, useRouter } from "expo-router";
@@ -44,15 +45,36 @@ export function LoginScreen() {
   const onSubmit = handleSubmit(async (values) => {
     setRequestError(null);
 
+    let signinResponse;
+
     try {
-      const response = await signin({ login_id: values.loginId, password: values.password });
-      authenticate(values.loginId, response.memberId);
-      router.replace("/auth-complete" as Href);
+      signinResponse = await signin({ login_id: values.loginId, password: values.password });
     } catch (error) {
       setRequestError(
         error instanceof ApiError
           ? error.message
           : "로그인하지 못했습니다. 잠시 후 다시 시도해주세요.",
+      );
+      return;
+    }
+
+    try {
+      const profile = await getProfile();
+      const hasProfile = Boolean(profile.profileSummary?.trim());
+
+      authenticate(values.loginId, signinResponse.memberId);
+      router.replace((hasProfile ? "/auth-complete" : "/profile-setup") as Href);
+    } catch (error) {
+      if (error instanceof ApiError && error.status === 404) {
+        authenticate(values.loginId, signinResponse.memberId);
+        router.replace("/profile-setup" as Href);
+        return;
+      }
+
+      setRequestError(
+        error instanceof ApiError
+          ? error.message
+          : "로그인은 완료되었지만 프로필 정보를 확인하지 못했습니다. 다시 시도해주세요.",
       );
     }
   });
