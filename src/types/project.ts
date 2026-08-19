@@ -3,7 +3,13 @@ import type { ImageSourcePropType } from 'react-native';
 export type ProjectStatus = 'recruiting' | 'recruit-closed' | 'in-progress' | 'completed';
 
 export interface ProjectCardData {
+  /** 목록 key. 과제 카드에서는 taskId라서 이동 대상 id와 다르다. */
   id: string;
+  /**
+   * 카드를 눌렀을 때 이동에 쓸 프로젝트 id. 없으면 카드를 누를 수 없는 것으로 본다
+   * (버튼처럼 보이는데 아무 일도 일어나지 않는 상태를 만들지 않기 위함).
+   */
+  linkId?: string;
   projectName: string;
   status: ProjectStatus;
   subInfo: string;
@@ -28,13 +34,25 @@ export interface ProjectDetailInfoRow {
 }
 
 /**
+ * D-day 필드 과도기 호환.
+ *
+ * 백엔드 스펙(api.json)은 모든 응답에서 소문자 `dday`를 쓰지만, 프론트는 그동안 `dDay`를
+ * 읽고 있었다. 실제 응답 JSON을 관측하지 못해 어느 쪽이 오는지 확정하지 못했으므로 둘 다
+ * 수용한다. 값을 읽을 때는 직접 접근하지 말고 항상 `resolveDDay()`(services/project.ts)를
+ * 쓸 것. 백엔드 계약이 확정되면 한쪽을 제거한다.
+ */
+export interface DDayFields {
+  dday?: number;
+  dDay?: number;
+}
+
+/**
  * GET /api/projects?status=RECRUITING, GET /api/projects/recommended
  */
-export interface RecruitingProjectListItem {
+export interface RecruitingProjectListItem extends DDayFields {
   projectId: number;
   title: string;
   roles: string[];
-  dDay: number;
   status: string;
   imageUrl: string | null;
 }
@@ -42,18 +60,17 @@ export interface RecruitingProjectListItem {
 /**
  * GET /api/projects/my?memberId=
  */
-export interface MyProjectListItem {
+export interface MyProjectListItem extends DDayFields {
   projectId: number;
   title: string;
   myRole: string | null;
-  dDay: number;
   status: string;
 }
 
 /**
  * GET /api/projects/{projectId}
  */
-export interface ProjectDetailResponse {
+export interface ProjectDetailResponse extends DDayFields {
   projectId: number;
   title: string;
   introText: string;
@@ -62,7 +79,6 @@ export interface ProjectDetailResponse {
   periodEnd: string;
   meetingSchedule: string;
   deadline: string;
-  dDay: number;
   status: string;
   imageUrl: string | null;
   memberId: number;

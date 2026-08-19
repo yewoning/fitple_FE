@@ -1,7 +1,9 @@
 import { createStore } from 'zustand/vanilla';
+import { mockChatProjects, mockTodayTasks } from '@/api/mockData';
 import { DEMO_PROJECTS, DEMO_USERS, getDemoUser, type DemoProjectRecord } from '@/mocks/fixtures';
 import type { SubmitApplicationRequest, SubmitApplicationResponse } from '@/types/application';
 import type { MemberProfile } from '@/types/member';
+import type { TodayTaskListItem } from '@/types/task';
 import type {
   AssignedRole,
   MyProjectListItem,
@@ -78,7 +80,7 @@ export const demoStore = createStore<DemoState>((set, get) => ({
     const detail: ProjectDetailResponse = {
       projectId,
       ...payload,
-      dDay: toDDay(payload.deadline),
+      dday: toDDay(payload.deadline),
       status: 'RECRUITING',
       memberId,
       memberName,
@@ -105,7 +107,7 @@ export const demoStore = createStore<DemoState>((set, get) => ({
                 ...project.detail,
                 ...payload,
                 roles: payload.roles ?? project.detail.roles,
-                dDay: payload.deadline ? toDDay(payload.deadline) : project.detail.dDay,
+                dday: payload.deadline ? toDDay(payload.deadline) : project.detail.dday,
               },
             }
           : project,
@@ -223,7 +225,7 @@ export function getDemoRecruitingProjects(): RecruitingProjectListItem[] {
       projectId: detail.projectId,
       title: detail.title,
       roles: detail.roles,
-      dDay: detail.dDay,
+      dday: detail.dday,
       status: detail.status,
       imageUrl: detail.imageUrl,
     }));
@@ -249,9 +251,51 @@ export function getDemoMyProjects(memberId: number): MyProjectListItem[] {
         project.detail.memberId === memberId
           ? '프로젝트 리더'
           : project.participantRoles[memberId] ?? '팀원',
-      dDay: project.detail.dDay,
+      dday: project.detail.dday,
       status: project.detail.status,
     }));
+}
+
+/** 오늘 기준 offsetDays일 뒤 날짜를 'YYYY-MM-DD'로 만든다. */
+function toRelativeDueDate(offsetDays: number): string {
+  const now = new Date();
+  const target = new Date(now.getFullYear(), now.getMonth(), now.getDate() + offsetDays);
+  const month = String(target.getMonth() + 1).padStart(2, '0');
+  const day = String(target.getDate()).padStart(2, '0');
+  return `${target.getFullYear()}-${month}-${day}`;
+}
+
+/**
+ * 홈 '오늘의 과제'(GET /api/tasks/today) 목업.
+ *
+ * 마이페이지와 같은 원본(mockTodayTasks)에서 파생시켜 mock-only에서 두 화면이 어긋나지 않게 한다.
+ * 원본 dueDate는 고정 날짜라 시간이 지나면 전부 마감 경과가 되는데, 이 엔드포인트는 '마감이
+ * 지나지 않은 것만'이 계약이라 그대로 쓰면 홈 과제 섹션이 빈 채로 나온다. 그래서 dueDate를
+ * 오늘 기준 상대 날짜로 다시 만들고 D-day 임박순으로 정렬해 실제 응답을 재현한다.
+ *
+ * 실제 API와 달리 memberId로 거르지 않는다 — 원본의 담당자가 memberId 1 한 명뿐이라
+ * applicant(2)로 거르면 목록이 비어버린다.
+ */
+export function getDemoTodayTasks(): TodayTaskListItem[] {
+  return mockTodayTasks
+    .map((task, index) => {
+      const dueDate = toRelativeDueDate(index % 4);
+      // 원본 과제에는 projectId가 없어서 채팅 목업의 프로젝트명으로 역추적한다.
+      // 못 찾으면 0으로 두고, 그 카드는 이동 링크 없이 표시된다.
+      const chatProject = mockChatProjects.find(
+        (candidate) => candidate.projectName === task.projectName,
+      );
+      return {
+        taskId: task.taskId,
+        projectId: task.projectId ?? chatProject?.projectId ?? 0,
+        projectName: task.projectName,
+        title: task.title,
+        dueDate,
+        status: task.status,
+        dday: toDDay(dueDate),
+      };
+    })
+    .sort((a, b) => a.dday - b.dday);
 }
 
 export function getDemoProject(projectId: string | number): ProjectDetailResponse {

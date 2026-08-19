@@ -11,6 +11,7 @@ import {
 import { withDemoFallback } from '@/services/demo-fallback';
 import type {
   AssignedRole,
+  DDayFields,
   MyProjectListItem,
   ProjectAiGenerateRequest,
   ProjectAiGenerateResponse,
@@ -30,6 +31,16 @@ export const API_STATUS_TO_PROJECT_STATUS: Record<string, ProjectStatus> = {
   IN_PROGRESS: 'in-progress',
   CLOSED: 'completed',
 };
+
+/**
+ * 응답의 D-day를 읽는 유일한 경로. 스펙은 소문자 `dday`지만 과도기 동안 `dDay`도 받는다.
+ * 값이 없으면 undefined를 돌려주고, 표시는 호출부가 결정한다(NaN을 만들지 않기 위함).
+ */
+export function resolveDDay(item: DDayFields): number | undefined {
+  if (typeof item.dday === 'number') return item.dday;
+  if (typeof item.dDay === 'number') return item.dDay;
+  return undefined;
+}
 
 function appendFileToFormData(form: FormData, key: string, file: { uri: string; name: string; type: string }) {
   form.append(key, { uri: file.uri, name: file.name, type: file.type } as unknown as Blob);
@@ -164,7 +175,7 @@ export function toRecruitingProjectCardData(item: RecruitingProjectListItem): Re
     projectName: item.title,
     status: API_STATUS_TO_PROJECT_STATUS[item.status] ?? 'recruiting',
     subInfo: item.roles.join(' · '),
-    dDay: item.dDay,
+    dDay: resolveDDay(item),
     imageUrl: item.imageUrl,
   };
 }
@@ -172,19 +183,21 @@ export function toRecruitingProjectCardData(item: RecruitingProjectListItem): Re
 export function toProjectCardData(item: RecruitingProjectListItem): ProjectCardData {
   return {
     id: String(item.projectId),
+    linkId: String(item.projectId),
     projectName: item.title,
     status: API_STATUS_TO_PROJECT_STATUS[item.status] ?? 'recruiting',
     subInfo: item.roles.join(' · '),
-    dDay: item.dDay,
+    dDay: resolveDDay(item),
   };
 }
 
 export function toMyProjectCardData(item: MyProjectListItem): ProjectCardData {
   return {
     id: String(item.projectId),
+    linkId: String(item.projectId),
     projectName: item.title,
     status: API_STATUS_TO_PROJECT_STATUS[item.status] ?? 'recruiting',
     subInfo: item.myRole ?? '역할 미배정',
-    dDay: item.dDay,
+    dDay: resolveDDay(item),
   };
 }

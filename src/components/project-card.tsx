@@ -54,11 +54,14 @@ export function StatusBadge({ status }: { status: ProjectStatus }) {
 }
 
 export function ProjectCard({ data, variant, onPress }: ProjectCardProps) {
+  // 이동할 곳이 없는 카드는 버튼으로 알리지 않는다.
+  // (스크린리더가 버튼이라고 읽어주는데 눌러도 반응이 없는 상태를 피한다.)
   return (
     <Pressable
       accessibilityLabel={data.projectName}
-      accessibilityRole="button"
+      accessibilityRole={onPress ? 'button' : undefined}
       className="w-full rounded-2xl bg-white p-3"
+      disabled={!onPress}
       onPress={onPress}
       style={({ pressed }) => ({ opacity: pressed ? 0.7 : 1 })}
     >
