@@ -1,11 +1,14 @@
 import { useState } from 'react';
 import { Ionicons } from '@expo/vector-icons';
+import { useQueryClient } from '@tanstack/react-query';
 import { type Href, useRouter } from 'expo-router';
 import { Alert, ScrollView, Text, TouchableOpacity, View } from 'react-native';
 
 import { CommonLayout, type BottomNavKey } from '@/components/layout';
 import { Avatar } from '@/components/ui/avatar';
 import { useProfileQuery } from '@/hooks/useMypage';
+import { useAuthStore } from '@/store/auth-store';
+import { useProfileEditStore } from '@/store/profile-edit-store';
 
 const MENU = [
   { key: '/mypage/scrap', icon: 'bookmark-outline', title: '스크랩' },
@@ -13,10 +16,14 @@ const MENU = [
   { key: '/mypage/applications', icon: 'mail-outline', title: '지원 현황' },
   { key: '/mypage/resumes', icon: 'id-card-outline', title: '나의 역량' },
   { key: 'app-settings', icon: 'settings-outline', title: '앱 설정' },
+  { key: 'logout', icon: 'log-out-outline', title: '로그아웃' },
 ] as const;
 
 export default function MyPageScreen() {
   const router = useRouter();
+  const queryClient = useQueryClient();
+  const clearAuthentication = useAuthStore((state) => state.clearAuthentication);
+  const clearProfileEditDraft = useProfileEditStore((state) => state.clearDraft);
   const [activeTab, setActiveTab] = useState<BottomNavKey>('mypage');
   const { data: profile } = useProfileQuery();
 
@@ -38,6 +45,14 @@ export default function MyPageScreen() {
   }
 
   const handlePress = (key: (typeof MENU)[number]['key']) => {
+    if (key === 'logout') {
+      clearAuthentication();
+      clearProfileEditDraft();
+      queryClient.clear();
+      router.replace('/login' as Href);
+      return;
+    }
+
     if (key === 'app-settings') {
       Alert.alert('알림', '준비 중인 화면입니다.');
       return;

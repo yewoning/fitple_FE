@@ -1,5 +1,5 @@
 import { DEMO_USER_ROLE, type DemoUserRole } from '@/config/demo';
-import type { ProjectCardData, ProjectDetailResponse } from '@/types/project';
+import type { ProjectDetailResponse } from '@/types/project';
 
 export interface DemoUser {
   memberId: number;
@@ -29,7 +29,7 @@ export const DEMO_PROJECTS: DemoProjectRecord[] = [
       periodEnd: '2026-10-16',
       meetingSchedule: '매주 수요일 오후 7시',
       deadline: '2026-09-06',
-      dDay: 18,
+      dday: 18,
       status: 'RECRUITING',
       imageUrl: null,
       memberId: 1,
@@ -48,7 +48,7 @@ export const DEMO_PROJECTS: DemoProjectRecord[] = [
       periodEnd: '2026-10-30',
       meetingSchedule: '격주 목요일 온라인',
       deadline: '2026-09-04',
-      dDay: 16,
+      dday: 16,
       status: 'RECRUITING',
       imageUrl: null,
       memberId: 3,
@@ -67,7 +67,7 @@ export const DEMO_PROJECTS: DemoProjectRecord[] = [
       periodEnd: '2026-11-20',
       meetingSchedule: '매주 월요일 오후 8시',
       deadline: '2026-09-12',
-      dDay: 24,
+      dday: 24,
       status: 'IN_PROGRESS',
       imageUrl: null,
       memberId: 1,
@@ -86,7 +86,7 @@ export const DEMO_PROJECTS: DemoProjectRecord[] = [
       periodEnd: '2026-10-10',
       meetingSchedule: '주 1회 오프라인',
       deadline: '2026-09-03',
-      dDay: 15,
+      dday: 15,
       status: 'RECRUITING',
       imageUrl: null,
       memberId: 4,
@@ -94,23 +94,6 @@ export const DEMO_PROJECTS: DemoProjectRecord[] = [
     },
     participantRoles: {},
     ownerRole: null,
-  },
-];
-
-export const DEMO_TODAY_TASKS: ProjectCardData[] = [
-  {
-    id: '103',
-    projectName: '캠퍼스 중고거래 플랫폼',
-    status: 'in-progress',
-    subInfo: '홈 화면 API 연결 확인',
-    deadline: '2026-08-21',
-  },
-  {
-    id: '102',
-    projectName: '제로웨이스트 캠페인 프로젝트',
-    status: 'in-progress',
-    subInfo: '캠페인 카드 디자인 정리',
-    deadline: '2026-08-22',
   },
 ];
 

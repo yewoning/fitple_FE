@@ -2,10 +2,14 @@ import { useState } from 'react';
 import type { NativeScrollEvent, NativeSyntheticEvent } from 'react-native';
 import { ScrollView, View, useWindowDimensions } from 'react-native';
 import { RecommendedProjectRow } from '@/components/recommended-project-row';
+import { SectionPlaceholder } from '@/components/section-placeholder';
 import type { ProjectCardData } from '@/types/project';
 
 export interface ProjectCarouselProps {
   projects: ProjectCardData[];
+  isLoading: boolean;
+  errorMessage: string | null;
+  emptyMessage: string;
   onProjectPress?: (id: string) => void;
 }
 
@@ -21,7 +25,13 @@ function chunk<T>(items: T[], size: number): T[][] {
   return chunks;
 }
 
-export function ProjectCarousel({ projects, onProjectPress }: ProjectCarouselProps) {
+export function ProjectCarousel({
+  projects,
+  isLoading,
+  errorMessage,
+  emptyMessage,
+  onProjectPress,
+}: ProjectCarouselProps) {
   const { width } = useWindowDimensions();
   const [activeIndex, setActiveIndex] = useState(0);
 
@@ -32,6 +42,21 @@ export function ProjectCarousel({ projects, onProjectPress }: ProjectCarouselPro
   function handleScrollEnd(event: NativeSyntheticEvent<NativeScrollEvent>) {
     const index = Math.round(event.nativeEvent.contentOffset.x / snapInterval);
     setActiveIndex(Math.max(0, Math.min(index, pages.length - 1)));
+  }
+
+  // 빈 배열이면 캐러셀이 아무것도 없는 빈 ScrollView만 그리게 되므로 상태 문구로 대체한다.
+  if (isLoading || errorMessage || pages.length === 0) {
+    return (
+      <View className="mt-4 px-8">
+        <View className="rounded-[36px] bg-white px-5 py-3">
+          <SectionPlaceholder
+            isLoading={isLoading}
+            errorMessage={errorMessage}
+            emptyMessage={emptyMessage}
+          />
+        </View>
+      </View>
+    );
   }
 
   return (

@@ -3,18 +3,18 @@ import { ApiError } from '@/services/api-client';
 import {
   generateProfile,
   getProfile,
-  regenerateProfile,
-  updateProfile,
   uploadProfileFile,
 } from '@/services/profile';
 import { useAuthStore } from '@/store/auth-store';
+import { useProfileEditStore } from '@/store/profile-edit-store';
 import type { ProfileFile, ProfileGenerateRequest, ProfileUploadAsset } from '@/types/profile';
 import * as DocumentPicker from 'expo-document-picker';
 import { LinearGradient } from 'expo-linear-gradient';
-import { Redirect, type Href, useRouter } from 'expo-router';
+import { type Href, useRouter } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';
 import {
   Image,
+  Keyboard,
   KeyboardAvoidingView,
   Platform,
   Pressable,
@@ -54,15 +54,12 @@ function formatMessageTime() {
 
 export function ProfileSetupScreen() {
   const router = useRouter();
-  const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
-  const loginId = useAuthStore((state) => state.loginId);
   const memberId = useAuthStore((state) => state.memberId);
   const scrollRef = useRef<ScrollView>(null);
   const messageSequence = useRef(0);
   const generationSequence = useRef(0);
   const pendingUploadRef = useRef<ProfileUploadAsset | null>(null);
   const lastGenerationPayloadRef = useRef<ProfileGenerateRequest | null>(null);
-  const lastGenerationWasRegenerateRef = useRef(false);
   const [inputValue, setInputValue] = useState('');
   const [messages, setMessages] = useState<ProfileMessage[]>([]);
   const [experienceEntries, setExperienceEntries] = useState<string[]>([]);
@@ -74,25 +71,27 @@ export function ProfileSetupScreen() {
   const [profileError, setProfileError] = useState<string | null>(null);
   const [profileName, setProfileName] = useState('');
   const [profileSummary, setProfileSummary] = useState('');
-  const [isEditingProfile, setIsEditingProfile] = useState(false);
-  const [isSavingProfile, setIsSavingProfile] = useState(false);
-  const [profileNotice, setProfileNotice] = useState<string | null>(null);
+  const [profileImage, setProfileImage] = useState<string | undefined>();
+  const setProfileEditDraft = useProfileEditStore((state) => state.setDraft);
   const initialMessageTime = useRef(formatMessageTime()).current;
+  const hasProfileResult = messages.some((message) => message.kind === 'analysisResult');
 
   useEffect(() => {
-    if (!isAuthenticated || !loginId) {
-      return;
-    }
-
     let isMounted = true;
 
     void getProfile()
       .then((profile) => {
-        if (!isMounted || !profile.profileSummary) {
+        if (!isMounted) {
           return;
         }
 
         setProfileName(profile.name ?? '');
+        setProfileImage(profile.profileImage);
+
+        if (!profile.profileSummary?.trim()) {
+          return;
+        }
+
         setProfileSummary(profile.profileSummary);
         messageSequence.current += 1;
         setMessages([
@@ -116,11 +115,7 @@ export function ProfileSetupScreen() {
     return () => {
       isMounted = false;
     };
-  }, [isAuthenticated, loginId]);
-
-  if (!isAuthenticated || !loginId) {
-    return <Redirect href={'/login' as Href} />;
-  }
+  }, []);
 
   const nextMessageId = () => {
     messageSequence.current += 1;
@@ -143,7 +138,6 @@ export function ProfileSetupScreen() {
   const requestProfileGeneration = async (
     entries: string[],
     files: ProfileFile[],
-    regenerate = false,
   ) => {
     const payload = buildGeneratePayload(entries, files);
 
@@ -154,10 +148,8 @@ export function ProfileSetupScreen() {
     const requestId = generationSequence.current + 1;
     generationSequence.current = requestId;
     lastGenerationPayloadRef.current = payload;
-    lastGenerationWasRegenerateRef.current = regenerate;
     setIsGenerating(true);
     setProfileError(null);
-    setProfileNotice(null);
     setMessages((currentMessages) => [
       ...currentMessages.filter(
         (message) => message.kind !== 'analyzing' && message.kind !== 'error',
@@ -172,22 +164,29 @@ export function ProfileSetupScreen() {
     ]);
 
     try {
-      const response = regenerate
-        ? await regenerateProfile(payload)
-        : await generateProfile(payload);
+      const response = await generateProfile(payload);
 
       if (requestId !== generationSequence.current) {
         return;
       }
 
-      setProfileSummary(response.profileSummary);
+      const generatedSummary = response.profileSummary.trim();
+
+      if (!generatedSummary) {
+        throw new ApiError(PROFILE_ERROR_MESSAGE);
+      }
+
+      setProfileSummary(generatedSummary);
+      setInputValue('');
+      setUploadMenuOpen(false);
+      Keyboard.dismiss();
       setMessages((currentMessages) => [
         ...currentMessages.filter((message) => message.kind !== 'analyzing'),
         {
           id: nextMessageId(),
           kind: 'analysisResult',
           sender: 'bot',
-          content: response.profileSummary,
+          content: generatedSummary,
           time: formatMessageTime(),
         },
       ]);
@@ -218,7 +217,7 @@ export function ProfileSetupScreen() {
   const handleSendText = () => {
     const trimmedValue = inputValue.trim();
 
-    if (!trimmedValue) {
+    if (!trimmedValue || isGenerating || isUploading || hasProfileResult) {
       return;
     }
 
@@ -230,14 +229,13 @@ export function ProfileSetupScreen() {
   };
 
   const uploadSelectedFile = async (asset: ProfileUploadAsset) => {
-    if (!memberId || isUploading) {
+    if (!memberId || isUploading || isGenerating || hasProfileResult) {
       return;
     }
 
     pendingUploadRef.current = asset;
     setIsUploading(true);
     setUploadError(null);
-    setProfileNotice(null);
 
     try {
       const uploadedFile = await uploadProfileFile(memberId, asset);
@@ -254,7 +252,7 @@ export function ProfileSetupScreen() {
   };
 
   const handleAddFile = async () => {
-    if (uploadedFiles.length > 0 || isUploading) {
+    if (uploadedFiles.length > 0 || isUploading || isGenerating || hasProfileResult) {
       return;
     }
 
@@ -291,60 +289,29 @@ export function ProfileSetupScreen() {
 
   const handleRetryGeneration = () => {
     if (lastGenerationPayloadRef.current) {
-      void requestProfileGeneration(
-        experienceEntries,
-        uploadedFiles,
-        lastGenerationWasRegenerateRef.current,
-      );
+      void requestProfileGeneration(experienceEntries, uploadedFiles);
     }
   };
 
-  const handleSaveProfile = async () => {
-    const trimmedName = profileName.trim();
-    const trimmedSummary = profileSummary.trim();
-
-    if (!trimmedName || !trimmedSummary) {
-      setProfileError('이름과 프로필 내용을 모두 입력해주세요.');
-      return;
-    }
-
-    setIsSavingProfile(true);
-    setProfileError(null);
-
-    try {
-      const response = await updateProfile({ name: trimmedName, profileSummary: trimmedSummary });
-      setProfileName(trimmedName);
-      setProfileSummary(trimmedSummary);
-      setProfileNotice(response.message || '프로필을 저장했습니다.');
-      setIsEditingProfile(false);
-    } catch (error) {
-      setProfileError(error instanceof ApiError ? error.message : PROFILE_ERROR_MESSAGE);
-    } finally {
-      setIsSavingProfile(false);
-    }
-  };
-
-  const handleRegenerateProfile = () => {
-    if (!profileSummary.trim()) {
-      return;
-    }
-
-    void requestProfileGeneration(
-      experienceEntries.length > 0 ? experienceEntries : [profileSummary],
-      uploadedFiles,
-      true,
-    );
+  const handleOpenProfileEdit = () => {
+    setProfileEditDraft({
+      name: profileName,
+      profileSummary,
+      profileImage,
+    });
+    router.push('/profile-edit' as Href);
   };
 
   const hasInput = inputValue.trim().length > 0;
   const fileAdded = uploadedFiles.length > 0;
+  const composerBusy = isGenerating || isUploading;
 
   return (
     <CommonLayout
       header={{
         title: '핏봇',
         showBack: true,
-        onBackPress: () => router.replace('/auth-complete' as Href),
+        onBackPress: () => router.replace('/home' as Href),
       }}
       bottomNav={false}
     >
@@ -413,75 +380,30 @@ export function ProfileSetupScreen() {
                     content={message.content}
                     error={message.kind === 'error'}
                     time={message.time}
-                    actionLabel={message.kind === 'error' ? '다시 시도' : undefined}
-                    onActionPress={message.kind === 'error' ? handleRetryGeneration : undefined}
+                    actionAccessibilityRole={message.kind === 'analysisResult' ? 'link' : 'button'}
+                    actionLabel={
+                      message.kind === 'error'
+                        ? '다시 시도'
+                        : message.kind === 'analysisResult'
+                          ? '프로필 수정 바로가기'
+                          : undefined
+                    }
+                    onActionPress={
+                      message.kind === 'error'
+                        ? handleRetryGeneration
+                        : message.kind === 'analysisResult'
+                          ? handleOpenProfileEdit
+                          : undefined
+                    }
                   />
                 ),
               )}
             </ScrollView>
 
-            {profileSummary ? (
-              <View className="px-[14px] pb-3">
-                {isEditingProfile ? (
-                  <View className="rounded-[20px] bg-white p-4">
-                    <Text className="mb-2 font-sans text-[13px] font-semibold text-gray-6">프로필 수정</Text>
-                    <TextInput
-                      accessibilityLabel="프로필 이름"
-                      className="mb-2 rounded-xl bg-gray-1 px-3 py-2 font-sans text-[13px] text-gray-6"
-                      onChangeText={setProfileName}
-                      placeholder="이름"
-                      placeholderTextColor="#828797"
-                      value={profileName}
-                    />
-                    <TextInput
-                      accessibilityLabel="프로필 내용"
-                      className="min-h-20 rounded-xl bg-gray-1 px-3 py-2 font-sans text-[13px] leading-5 text-gray-6"
-                      multiline
-                      onChangeText={setProfileSummary}
-                      placeholder="프로필 내용"
-                      placeholderTextColor="#828797"
-                      textAlignVertical="top"
-                      value={profileSummary}
-                    />
-                    <View className="mt-3 flex-row gap-2">
-                      <Pressable
-                        accessibilityRole="button"
-                        className="flex-1 items-center rounded-full bg-sky-blue py-2.5"
-                        disabled={isSavingProfile}
-                        onPress={handleSaveProfile}
-                      >
-                        <Text className="font-sans text-[13px] font-semibold text-gray-1">
-                          {isSavingProfile ? '저장 중' : '저장'}
-                        </Text>
-                      </Pressable>
-                      <Pressable
-                        accessibilityRole="button"
-                        className="flex-1 items-center rounded-full bg-gray-1 py-2.5"
-                        disabled={isGenerating}
-                        onPress={handleRegenerateProfile}
-                      >
-                        <Text className="font-sans text-[13px] font-semibold text-gray-6">
-                          {isGenerating ? '생성 중' : '다시 생성'}
-                        </Text>
-                      </Pressable>
-                    </View>
-                  </View>
-                ) : (
-                  <Pressable
-                    accessibilityRole="button"
-                    className="items-center rounded-full bg-white py-2.5"
-                    onPress={() => setIsEditingProfile(true)}
-                  >
-                    <Text className="font-sans text-[13px] font-semibold text-gray-6">프로필 수정</Text>
-                  </Pressable>
-                )}
-              </View>
-            ) : null}
-
-            {profileError || uploadError || profileNotice ? (
+            {profileError || uploadError ? (
               <View className="px-[18px] pb-2">
-                <Text className={`font-sans text-[12px] ${profileError || uploadError ? 'text-red-500' : 'text-gray-5'}`}>
-                  {profileError ?? uploadError ?? profileNotice}
+                <Text className="font-sans text-[12px] text-red-500">
+                  {profileError ?? uploadError}
                 </Text>
                 {uploadError && pendingUploadRef.current ? (
                   <Pressable accessibilityRole="button" onPress={handleRetryUpload}>
@@ -491,88 +413,96 @@ export function ProfileSetupScreen() {
               </View>
             ) : null}
 
-            <View className="px-[14px] pb-4">
-              <View className="flex-row items-end gap-2">
-                <View className="w-11 items-center">
-                  {uploadMenuOpen ? (
-                    <Pressable
-                      accessibilityRole="button"
-                      accessibilityState={{ disabled: fileAdded }}
-                      disabled={fileAdded || isUploading}
-                      className={`mb-[10px] h-9 min-w-[92px] items-center justify-center self-start rounded-full px-4 ${
-                        fileAdded ? 'bg-white' : 'bg-sky-blue'
-                      }`}
-                      onPress={handleAddFile}
-                      style={({ pressed }) => ({
-                        opacity: pressed && !fileAdded && !isUploading ? 0.8 : 1,
-                        transform: [{ translateX: 8 }],
-                      })}
-                    >
-                      <Text
-                        className={`font-sans text-[12px] font-medium ${
-                          fileAdded ? 'text-gray-5' : 'text-gray-1'
+            {!hasProfileResult ? (
+              <View className="px-[14px] pb-4">
+                <View className="flex-row items-end gap-2">
+                  <View className="w-11 items-center">
+                    {uploadMenuOpen ? (
+                      <Pressable
+                        accessibilityRole="button"
+                        accessibilityState={{ busy: isUploading, disabled: fileAdded || composerBusy }}
+                        disabled={fileAdded || composerBusy}
+                        className={`mb-[10px] h-9 min-w-[92px] items-center justify-center self-start rounded-full px-4 ${
+                          fileAdded ? 'bg-white' : 'bg-sky-blue'
                         }`}
+                        onPress={handleAddFile}
+                        style={({ pressed }) => ({
+                          opacity: pressed && !fileAdded && !isUploading ? 0.8 : 1,
+                          transform: [{ translateX: 8 }],
+                        })}
                       >
-                        {isUploading ? '업로드 중' : '자료 업로드'}
-                      </Text>
-                    </Pressable>
-                  ) : null}
+                        <Text
+                          className={`font-sans text-[12px] font-medium ${
+                            fileAdded ? 'text-gray-5' : 'text-gray-1'
+                          }`}
+                        >
+                          {isUploading ? '업로드 중' : '자료 업로드'}
+                        </Text>
+                      </Pressable>
+                    ) : null}
 
-                  {/* 입력창(min-h 54)보다 10px 낮아, 아래 여백을 줘서 입력창 중앙에 맞춘다 */}
-                  <Pressable
-                    accessibilityLabel={
-                      uploadMenuOpen ? '자료 업로드 메뉴 닫기' : '자료 업로드 메뉴 열기'
-                    }
-                    accessibilityRole="button"
-                    accessibilityState={{ expanded: uploadMenuOpen }}
-                    className={`mb-[5px] h-11 w-11 items-center justify-center rounded-full ${
-                      uploadMenuOpen ? 'bg-sky-blue' : 'bg-white'
-                    }`}
-                    onPress={() => setUploadMenuOpen((currentValue) => !currentValue)}
-                    style={({ pressed }) => ({ opacity: pressed ? 0.8 : 1 })}
-                  >
-                    <Text
-                      className={`font-sans text-[28px] font-light leading-[32px] ${
-                        uploadMenuOpen ? 'text-gray-1' : 'text-gray-5'
-                      }`}
-                    >
-                      +
-                    </Text>
-                  </Pressable>
-                </View>
-
-                <View className="min-h-[54px] flex-1 flex-row items-center rounded-full bg-white pl-[22px] pr-[9px]">
-                  <TextInput
-                    accessibilityLabel="프로젝트 경험 입력"
-                    className="max-h-24 flex-1 py-[10px] font-sans text-[12px] leading-[18px] text-gray-6"
-                    multiline
-                    // 웹의 textarea는 기본 2줄 높이라 글자가 위로 붙는다. 한 줄 높이로 맞춰 세로 중앙에 오게 한다
-                    {...(Platform.OS === 'web' ? { rows: 1 } : null)}
-                    onChangeText={setInputValue}
-                    placeholder="프로젝트 경험을 입력하거나 자료를 업로드해 주세요."
-                    placeholderTextColor="#828797"
-                    returnKeyType="default"
-                    textAlignVertical="center"
-                    value={inputValue}
-                  />
-                  {/* 시안에는 없는 버튼이라, 입력이 있을 때만 노출해 안내 문구 자리를 뺏지 않도록 한다 */}
-                  {hasInput ? (
+                    {/* 입력창(min-h 54)보다 10px 낮아, 아래 여백을 줘서 입력창 중앙에 맞춘다 */}
                     <Pressable
-                      accessibilityLabel="프로젝트 경험 전송"
+                      accessibilityLabel={
+                        uploadMenuOpen ? '자료 업로드 메뉴 닫기' : '자료 업로드 메뉴 열기'
+                      }
                       accessibilityRole="button"
-                      className="ml-1.5 h-8 w-8 items-center justify-center rounded-full bg-sky-blue"
-                      disabled={isGenerating}
-                      onPress={handleSendText}
+                      accessibilityState={{
+                        busy: composerBusy,
+                        disabled: composerBusy,
+                        expanded: uploadMenuOpen,
+                      }}
+                      className={`mb-[5px] h-11 w-11 items-center justify-center rounded-full ${
+                        uploadMenuOpen ? 'bg-sky-blue' : 'bg-white'
+                      }`}
+                      disabled={composerBusy}
+                      onPress={() => setUploadMenuOpen((currentValue) => !currentValue)}
                       style={({ pressed }) => ({ opacity: pressed ? 0.8 : 1 })}
                     >
-                      <Text className="font-sans text-[16px] font-semibold leading-5 text-gray-1">
-                        ↑
+                      <Text
+                        className={`font-sans text-[28px] font-light leading-[32px] ${
+                          uploadMenuOpen ? 'text-gray-1' : 'text-gray-5'
+                        }`}
+                      >
+                        +
                       </Text>
                     </Pressable>
-                  ) : null}
+                  </View>
+
+                  <View className="min-h-[54px] flex-1 flex-row items-center rounded-full bg-white pl-[22px] pr-[9px]">
+                    <TextInput
+                      accessibilityLabel="프로젝트 경험 입력"
+                      className="max-h-24 flex-1 py-[10px] font-sans text-[12px] leading-[18px] text-gray-6"
+                      multiline
+                      // 웹의 textarea는 기본 2줄 높이라 글자가 위로 붙는다. 한 줄 높이로 맞춰 세로 중앙에 오게 한다
+                      {...(Platform.OS === 'web' ? { rows: 1 } : null)}
+                      editable={!composerBusy}
+                      onChangeText={setInputValue}
+                      placeholder="프로젝트 경험을 입력하거나 자료를 업로드해 주세요."
+                      placeholderTextColor="#828797"
+                      returnKeyType="default"
+                      textAlignVertical="center"
+                      value={inputValue}
+                    />
+                    {/* 시안에는 없는 버튼이라, 입력이 있을 때만 노출해 안내 문구 자리를 뺏지 않도록 한다 */}
+                    {hasInput ? (
+                      <Pressable
+                        accessibilityLabel="프로젝트 경험 전송"
+                        accessibilityRole="button"
+                        className="ml-1.5 h-8 w-8 items-center justify-center rounded-full bg-sky-blue"
+                        disabled={composerBusy}
+                        onPress={handleSendText}
+                        style={({ pressed }) => ({ opacity: pressed ? 0.8 : 1 })}
+                      >
+                        <Text className="font-sans text-[16px] font-semibold leading-5 text-gray-1">
+                          ↑
+                        </Text>
+                      </Pressable>
+                    ) : null}
+                  </View>
                 </View>
               </View>
-            </View>
+            ) : null}
           </View>
         </KeyboardAvoidingView>
       </SafeAreaView>
@@ -585,6 +515,7 @@ function BotMessage({
   emphasis,
   time,
   error = false,
+  actionAccessibilityRole = 'button',
   actionLabel,
   onActionPress,
 }: {
@@ -592,6 +523,7 @@ function BotMessage({
   emphasis?: string;
   time: string;
   error?: boolean;
+  actionAccessibilityRole?: 'button' | 'link';
   actionLabel?: string;
   onActionPress?: () => void;
 }) {
@@ -624,7 +556,12 @@ function BotMessage({
               ) : null}
             </Text>
             {actionLabel && onActionPress ? (
-              <Pressable accessibilityRole="button" className="mt-2 self-start" onPress={onActionPress}>
+              <Pressable
+                accessibilityLabel={actionLabel}
+                accessibilityRole={actionAccessibilityRole}
+                className="mt-2 self-start"
+                onPress={onActionPress}
+              >
                 <Text className="font-sans text-[12px] font-medium text-sky-blue underline">
                   {actionLabel}
                 </Text>
