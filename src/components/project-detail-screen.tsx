@@ -300,6 +300,7 @@ export function ProjectDetailScreen({ projectId }: ProjectDetailScreenProps) {
                 {isOwner ? (
                   <PrimaryButton
                     label="지원자 관리"
+                    variant="accent"
                     onPress={() =>
                       router.push(`/project-applicants?id=${project.projectId}` as Href)
                     }
