@@ -2,6 +2,7 @@ import { createStore } from 'zustand/vanilla';
 import { mockChatProjects, mockTodayTasks } from '@/api/mockData';
 import { DEMO_PROJECTS, DEMO_USERS, getDemoUser, type DemoProjectRecord } from '@/mocks/fixtures';
 import type {
+  MyApplicationItem,
   ProjectApplicationItem,
   SubmitApplicationRequest,
   SubmitApplicationResponse,
@@ -28,6 +29,7 @@ interface DemoApplication {
   memberId: number;
   introText: string;
   status: string;
+  appliedAt: string;
 }
 
 interface DemoState {
@@ -60,6 +62,12 @@ function cloneInitialProjects(): DemoProjectRecord[] {
     participantRoles: { ...participantRoles },
     ownerRole,
   }));
+}
+
+function toIsoDate(date: Date) {
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${date.getFullYear()}-${month}-${day}`;
 }
 
 function toDDay(deadline: string) {
@@ -138,6 +146,7 @@ export const demoStore = createStore<DemoState>((set, get) => ({
       memberId,
       introText: payload.introText,
       status: 'PENDING',
+      appliedAt: toIsoDate(new Date()),
     };
 
     // 목업(mock-only) 전용 시뮬레이션: 실제 백엔드는 게시자가 지원을 수락해야 팀원으로
@@ -350,6 +359,31 @@ export function getDemoProject(projectId: string | number): ProjectDetailRespons
   }
 
   return { ...project.detail, roles: [...project.detail.roles] };
+}
+
+/** 내 지원 목록. 실제 API의 ApplicationMyResponse와 같은 모양으로 맞춘다. */
+export function getDemoMyApplications(memberId: number): MyApplicationItem[] {
+  const state = demoStore.getState();
+
+  return state.applications
+    .filter((application) => application.memberId === memberId)
+    .map((application) => {
+      const detail = state.projects.find(
+        (project) => project.detail.projectId === application.projectId,
+      )?.detail;
+
+      return {
+        applicationId: application.applicationId,
+        projectId: application.projectId,
+        projectTitle: detail?.title ?? '',
+        roles: detail ? [...detail.roles] : [],
+        projectStatus: detail?.status ?? 'RECRUITING',
+        imageUrl: detail?.imageUrl ?? null,
+        dday: detail?.dday ?? detail?.dDay ?? 0,
+        status: application.status,
+        appliedAt: application.appliedAt,
+      };
+    });
 }
 
 /** 게시자용 지원자 목록. 실제 API의 ApplicationResponse와 같은 모양으로 맞춘다. */

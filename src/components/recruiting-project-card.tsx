@@ -7,6 +7,8 @@ const FALLBACK_ICON = require('../../assets/icons/idea.webp');
 
 export interface RecruitingProjectCardProps {
   data: RecruitingProjectCardData;
+  /** 지원 현황처럼 카드의 프로젝트 상태와 별개인 상태(대기중/선정/미선정)를 덧붙일 때 쓴다. */
+  statusLabel?: string;
   onPress?: () => void;
 }
 
@@ -16,7 +18,7 @@ function getDDayText(data: RecruitingProjectCardData): string | null {
   return null;
 }
 
-export function RecruitingProjectCard({ data, onPress }: RecruitingProjectCardProps) {
+export function RecruitingProjectCard({ data, statusLabel, onPress }: RecruitingProjectCardProps) {
   const dDayText = getDDayText(data);
   const iconSource = data.imageUrl ? { uri: data.imageUrl } : (data.icon ?? FALLBACK_ICON);
 
@@ -53,9 +55,10 @@ export function RecruitingProjectCard({ data, onPress }: RecruitingProjectCardPr
           </View>
         ) : null}
 
-        {dDayText ? (
-          <View className="mt-1.5 flex-row justify-end">
-            <Text className="font-sans-semibold text-xs text-dark-blue">{dDayText}</Text>
+        {statusLabel || dDayText ? (
+          <View className="mt-1.5 flex-row items-center justify-between">
+            <Text className="font-sans-medium text-xs text-gray-5">{statusLabel ?? ''}</Text>
+            <Text className="font-sans-semibold text-xs text-dark-blue">{dDayText ?? ''}</Text>
           </View>
         ) : null}
       </View>

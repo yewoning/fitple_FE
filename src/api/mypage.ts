@@ -1,23 +1,18 @@
-// ⚠️ 아래 3개 기능은 현재 백엔드 계약이 없거나 로그인 사용자 식별 계약이 불완전해서
+// ⚠️ 아래 2개 기능은 현재 백엔드 계약이 없거나 로그인 사용자 식별 계약이 불완전해서
 // 의도적으로 mock-only 상태입니다. 계약이 확정되면 withDemoFallback으로 전환하세요.
 //   - getScraps      → GET /api/mypage/scraps?memberId=
 //   - getResumeVersions → GET /api/users/me/introductions?memberId= (AI 자소서/소개글 목록으로 추정)
-//   - getApplications → ⚠️ 스펙에 "내가 지원한 목록" 조회 API 자체가 없음(있는 건 프로젝트 주인이
-//     지원자를 보는 GET /api/projects/{projectId}/applications 뿐). 백엔드팀 확인 필요.
 //
+// 지원 현황은 GET /api/applications/my가 생겨서 services/application.ts로 옮겨 실제 연동했습니다.
 // getMyTodayTasks는 예외적으로 memberId 없이도 연동 가능해서 실제 데이터를 씁니다. (아래 참고)
 import { getAllMyTodayTasks } from './chat';
 import { withDemoFallback } from '@/services/demo-fallback';
 
 import { mockDelay } from './client';
-import { mockApplications, mockResumeVersions, mockScraps, mockTodayTasks } from './mockData';
+import { mockResumeVersions, mockScraps, mockTodayTasks } from './mockData';
 
 export async function getScraps() {
   return mockDelay({ scraps: mockScraps });
-}
-
-export async function getApplications() {
-  return mockDelay({ applications: mockApplications });
 }
 
 export async function getResumeVersions() {

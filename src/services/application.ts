@@ -1,10 +1,11 @@
 import { requestRaw } from '@/services/api-client';
-import { demoStore, getDemoProjectApplications } from '@/mocks/demo-store';
+import { demoStore, getDemoMyApplications, getDemoProjectApplications } from '@/mocks/demo-store';
 import { withDemoFallback } from '@/services/demo-fallback';
 import type {
   ApplicationAiGenerateRequest,
   ApplicationAiGenerateResponse,
   IntroductionListItem,
+  MyApplicationItem,
   ProjectApplicationItem,
   SubmitApplicationRequest,
   SubmitApplicationResponse,
@@ -40,6 +41,17 @@ export function submitApplication(
         },
       ),
     () => demoStore.getState().submitApplication(Number(projectId), memberId, payload),
+  );
+}
+
+/**
+ * 내가 지원한 전체 목록. 지원 현황 화면과 프로젝트 상세의 중복지원 판정이 함께 쓴다.
+ * 스펙상 파라미터가 없지만(세션 기반) 다른 호출부와 동일하게 memberId를 붙여 보낸다.
+ */
+export function getMyApplications(memberId: number) {
+  return withDemoFallback(
+    () => requestRaw<MyApplicationItem[]>(`/api/applications/my?memberId=${memberId}`),
+    () => getDemoMyApplications(memberId),
   );
 }
 
