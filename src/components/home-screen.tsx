@@ -21,6 +21,14 @@ export function HomeScreen() {
       router.push('/projects' as Href);
       return;
     }
+    if (tab === 'chat') {
+      router.push('/chat' as Href);
+      return;
+    }
+    if (tab === 'mypage') {
+      router.push('/mypage' as Href);
+      return;
+    }
     setActiveTab(tab);
   }
 
