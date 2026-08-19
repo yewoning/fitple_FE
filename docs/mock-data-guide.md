@@ -157,5 +157,5 @@ npm run lint
 - 채팅·마이페이지의 기존 fixture는 아직 `src/api/mockData.ts`에 있습니다. 새 프로젝트 도메인 fixture는 `src/mocks`에 추가하고, 기존 파일을 건드릴 때에는 도메인 단위로 이동합니다.
 - 지원(`submitApplication`)은 `mock-only`에서만 즉시 참여로 시뮬레이션됩니다. 실제 백엔드는 게시자가 지원을 수락(`POST /applications/{id}/accept`, 게시자 전용)해야 팀원으로 등록되는 구조라, `api-first`/`api-only`에서는 지원 제출이 `PENDING`으로만 남고 팀 결성 화면(`chat/[projectId]/team-ready-*`)으로 자동 이동하지 않습니다.
 - 위 시뮬레이션 때문에 `mock-only`에서는 지원자가 이미 팀원으로 등록된 상태로 지원자 관리 화면(`project-applicants`)에 뜹니다. 그래서 수락은 실질적으로 상태만 `PENDING → ACCEPTED`로 바꿉니다. 실제 API 모드에서는 수락 시점에 팀원 등록이 일어나는 정상 흐름을 탑니다.
-- 지원자 본인이 자기 지원 내역을 조회하는 API는 백엔드에 없습니다(있는 것은 게시자용 `GET /api/projects/{projectId}/applications`뿐). 그래서 마이페이지 "지원 현황"(`getApplications`)은 여전히 목업 고정 데이터입니다.
+- 중복지원은 두 겹으로 막힙니다. 서버가 `POST /api/projects/{id}/applications`에서 이미 지원(`PENDING`/`ACCEPTED`)한 경우 409로 거절하고, 화면은 `GET /api/applications/my` 결과로 "이미 지원함" 비활성 버튼을 보여줍니다. 거절(`REJECTED`)된 프로젝트는 서버·화면 모두 재지원을 허용합니다.
 - 팀 결성 화면(`team-ready-roadmap.tsx`)의 로드맵은 프로젝트 전용 생성 API가 없어 기존 채팅 도메인의 공용 목업(`mockRoadmap`)을 그대로 재사용합니다. 프로젝트별로 분리되지 않은 기존 한계가 이 화면에도 그대로 적용됩니다.

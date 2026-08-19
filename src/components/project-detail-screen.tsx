@@ -5,6 +5,7 @@ import { ActivityIndicator, Animated, Image, Pressable, ScrollView, Text, View }
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { PrimaryButton } from '@/components/primary-button';
 import { StatusBadge } from '@/components/project-card';
+import { useApplicationsQuery } from '@/hooks/useMypage';
 import { ApiError } from '@/services/api-client';
 import {
   API_STATUS_TO_PROJECT_STATUS,
@@ -44,6 +45,8 @@ export function ProjectDetailScreen({ projectId }: ProjectDetailScreenProps) {
   const cachedInvite = useProjectInviteStore((state) =>
     projectId ? state.invites[projectId] : undefined
   );
+
+  const { data: myApplications } = useApplicationsQuery(memberId);
 
   const [project, setProject] = useState<ProjectDetailResponse | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -213,6 +216,11 @@ export function ProjectDetailScreen({ projectId }: ProjectDetailScreenProps) {
   const status = API_STATUS_TO_PROJECT_STATUS[project.status] ?? 'recruiting';
   const imageSource = project.imageUrl ? { uri: project.imageUrl } : FALLBACK_ICON;
   const isOwner = memberId !== null && project.memberId === memberId;
+  // 백엔드가 409로 막는 조건이 PENDING/ACCEPTED라, 거절된 건은 재지원을 허용한다.
+  const hasApplied = (myApplications ?? []).some(
+    (application) =>
+      application.projectId === project.projectId && application.status !== 'REJECTED',
+  );
 
   const infoRows: ProjectDetailInfoRow[] = [
     { label: '모집 인원', value: `${project.recruitCount}명` },
@@ -262,6 +270,11 @@ export function ProjectDetailScreen({ projectId }: ProjectDetailScreenProps) {
               <Text className="font-sans text-xs text-gray-5">
                 모집기간 {formatShortDateLabel(project.deadline)}
               </Text>
+              {project.memberName ? (
+                <Text className="ml-auto font-sans text-xs text-gray-5" numberOfLines={1}>
+                  {project.memberName}
+                </Text>
+              ) : null}
             </View>
 
             <View className="mt-4 h-48 items-center justify-center overflow-hidden rounded-2xl bg-white">
@@ -326,6 +339,8 @@ export function ProjectDetailScreen({ projectId }: ProjectDetailScreenProps) {
                       router.push(`/project-applicants?id=${project.projectId}` as Href)
                     }
                   />
+                ) : hasApplied ? (
+                  <PrimaryButton label="이미 지원함" disabled onPress={() => {}} />
                 ) : (
                   <PrimaryButton
                     label="지원하기"

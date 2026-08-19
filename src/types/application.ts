@@ -33,6 +33,23 @@ export interface IntroductionListItem {
 }
 
 /**
+ * GET /api/applications/my — 내가 지원한 전체 목록 (지원 현황 화면용)
+ */
+export interface MyApplicationItem {
+  applicationId: number;
+  projectId: number;
+  projectTitle: string;
+  roles: string[];
+  /** RECRUITING | IN_PROGRESS | CLOSED */
+  projectStatus: string;
+  imageUrl: string | null;
+  dday: number;
+  /** PENDING | ACCEPTED | REJECTED */
+  status: string;
+  appliedAt: string;
+}
+
+/**
  * GET /api/projects/{projectId}/applications — 게시자 본인만 조회 가능
  */
 export interface ProjectApplicationItem {

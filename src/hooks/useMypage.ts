@@ -1,8 +1,9 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
 import { updateTaskStatus } from '@/api/chat';
-import { getApplications, getMyTodayTasks, getResumeVersions, getScraps } from '@/api/mypage';
+import { getMyTodayTasks, getResumeVersions, getScraps } from '@/api/mypage';
 import { getProfile } from '@/api/profile';
+import { getMyApplications } from '@/services/application';
 import type { TaskStatus } from '@/types';
 import { chatKeys } from './useChat';
 
@@ -28,10 +29,15 @@ export function useScrapsQuery() {
   });
 }
 
-export function useApplicationsQuery() {
+/**
+ * 지원 현황 화면과 프로젝트 상세(중복지원 판정)가 같은 캐시를 공유한다.
+ * 지원 제출 성공 시 mypageKeys.applications를 invalidate하면 두 화면이 함께 갱신된다.
+ */
+export function useApplicationsQuery(memberId: number | null) {
   return useQuery({
     queryKey: mypageKeys.applications,
-    queryFn: getApplications,
+    queryFn: () => getMyApplications(memberId as number),
+    enabled: memberId !== null,
   });
 }
 
