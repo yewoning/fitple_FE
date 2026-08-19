@@ -1,5 +1,5 @@
 import { DEMO_USER_ROLE, type DemoUserRole } from '@/config/demo';
-import type { ProjectCardData, ProjectDetailResponse } from '@/types/project';
+import type { ProjectDetailResponse } from '@/types/project';
 
 export interface DemoUser {
   memberId: number;
@@ -94,23 +94,6 @@ export const DEMO_PROJECTS: DemoProjectRecord[] = [
     },
     participantRoles: {},
     ownerRole: null,
-  },
-];
-
-export const DEMO_TODAY_TASKS: ProjectCardData[] = [
-  {
-    id: '103',
-    projectName: '캠퍼스 중고거래 플랫폼',
-    status: 'in-progress',
-    subInfo: '홈 화면 API 연결 확인',
-    deadline: '2026-08-21',
-  },
-  {
-    id: '102',
-    projectName: '제로웨이스트 캠페인 프로젝트',
-    status: 'in-progress',
-    subInfo: '캠페인 카드 디자인 정리',
-    deadline: '2026-08-22',
   },
 ];
 

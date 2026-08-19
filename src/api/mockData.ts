@@ -153,7 +153,7 @@ export const mockTodayTasks: TodayTask[] = [
     title: '콘텐츠 주제 후보 3개 정리',
     assignee: { memberId: 1, name: '김지수' },
     status: 'DONE',
-    dueDate: '2026.08.17',
+    dueDate: '2026-08-17',
   },
   {
     taskId: 2,
@@ -161,7 +161,7 @@ export const mockTodayTasks: TodayTask[] = [
     title: '인터뷰 질문 초안 검토',
     assignee: { memberId: 1, name: '김지수' },
     status: 'DONE',
-    dueDate: '2026.08.17',
+    dueDate: '2026-08-17',
   },
   {
     taskId: 3,
@@ -169,7 +169,7 @@ export const mockTodayTasks: TodayTask[] = [
     title: '팀원 진행 상황 확인 및 일정 정리',
     assignee: { memberId: 1, name: '김지수' },
     status: 'TODO',
-    dueDate: '2026.08.17',
+    dueDate: '2026-08-17',
   },
   {
     taskId: 4,
@@ -177,7 +177,7 @@ export const mockTodayTasks: TodayTask[] = [
     title: '판매 부스 배치안 정리',
     assignee: { memberId: 1, name: '김지수' },
     status: 'DONE',
-    dueDate: '2026.08.17',
+    dueDate: '2026-08-17',
   },
   {
     taskId: 5,
@@ -185,7 +185,7 @@ export const mockTodayTasks: TodayTask[] = [
     title: '봉사 참여 인원 최종 확인',
     assignee: { memberId: 1, name: '김지수' },
     status: 'TODO',
-    dueDate: '2026.08.17',
+    dueDate: '2026-08-17',
   },
   {
     taskId: 6,
@@ -193,7 +193,7 @@ export const mockTodayTasks: TodayTask[] = [
     title: '전시장 대관 일정 확인',
     assignee: { memberId: 1, name: '김지수' },
     status: 'TODO',
-    dueDate: '2026.08.17',
+    dueDate: '2026-08-17',
   },
 ];
 

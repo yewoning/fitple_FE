@@ -4,11 +4,24 @@ import { Image, Text, View } from 'react-native';
 import { CommonLayout, type BottomNavKey } from '@/components/layout';
 import { ProjectCarousel } from '@/components/project-carousel';
 import { ProjectGridSection } from '@/components/project-grid-section';
-import { DEMO_TODAY_TASKS, getDemoUser } from '@/mocks/fixtures';
+import { useMyTodayTasksQuery } from '@/hooks/useMypage';
+import { getDemoUser } from '@/mocks/fixtures';
 import { getMyProfile } from '@/services/member';
 import { getMyProjects, getRecommendedProjects, toMyProjectCardData, toProjectCardData } from '@/services/project';
 import { useAuthStore } from '@/store/auth-store';
+import type { TodayTask } from '@/types';
 import type { ProjectCardData } from '@/types/project';
+
+// 마이페이지 '오늘의 과제'와 같은 데이터(useMyTodayTasksQuery)를 홈 카드 모양으로 변환합니다.
+function toTaskCardData(task: TodayTask): ProjectCardData {
+  return {
+    id: String(task.taskId),
+    projectName: task.projectName,
+    status: task.status === 'DONE' ? 'completed' : 'in-progress',
+    subInfo: task.title,
+    deadline: task.dueDate,
+  };
+}
 
 export function HomeScreen() {
   const router = useRouter();
@@ -17,6 +30,8 @@ export function HomeScreen() {
   const [nickname, setNickname] = useState(getDemoUser().name);
   const [recommendedProjects, setRecommendedProjects] = useState<ProjectCardData[]>([]);
   const [inProgressProjects, setInProgressProjects] = useState<ProjectCardData[]>([]);
+  // 마이페이지 '오늘의 과제'와 같은 쿼리 키를 공유해서 두 화면이 항상 같은 데이터를 보여줍니다.
+  const { data: todayTaskData } = useMyTodayTasksQuery();
 
   useEffect(() => {
     if (memberId === null) return;
@@ -126,7 +141,7 @@ export function HomeScreen() {
 
         <ProjectGridSection
           title="AI 오늘의 과제"
-          data={DEMO_TODAY_TASKS}
+          data={(todayTaskData?.tasks ?? []).map(toTaskCardData)}
           variant="task"
           visibleRows={1}
         />
