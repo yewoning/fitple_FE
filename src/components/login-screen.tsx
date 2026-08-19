@@ -1,7 +1,8 @@
 import { AuthInput } from "@/components/auth-input";
 import { AuthScreenLayout } from "@/components/auth-screen-layout";
 import { PrimaryButton } from "@/components/primary-button";
-import { AuthApiError, signin } from "@/services/auth";
+import { ApiError } from "@/services/api-client";
+import { signin } from "@/services/auth";
 import { useAuthStore } from "@/store/auth-store";
 import { LOGIN_ID_MESSAGE, LOGIN_ID_PATTERN } from "@/utils/auth-validation";
 import { type Href, useLocalSearchParams, useRouter } from "expo-router";
@@ -49,7 +50,7 @@ export function LoginScreen() {
       router.replace("/auth-complete" as Href);
     } catch (error) {
       setRequestError(
-        error instanceof AuthApiError
+        error instanceof ApiError
           ? error.message
           : "로그인하지 못했습니다. 잠시 후 다시 시도해주세요.",
       );
