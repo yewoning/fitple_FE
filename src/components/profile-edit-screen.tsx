@@ -2,7 +2,6 @@ import { CommonLayout } from '@/components/layout';
 import { PrimaryButton } from '@/components/primary-button';
 import { ApiError } from '@/services/api-client';
 import { getProfile, regenerateProfile, updateProfile } from '@/services/profile';
-import { useAuthStore } from '@/store/auth-store';
 import { useProfileEditStore } from '@/store/profile-edit-store';
 import { useQueryClient } from '@tanstack/react-query';
 import { Redirect, type Href, useRouter } from 'expo-router';
@@ -32,8 +31,6 @@ const SHEET_DISMISS_VELOCITY = 0.5;
 export function ProfileEditScreen() {
   const router = useRouter();
   const queryClient = useQueryClient();
-  const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
-  const loginId = useAuthStore((state) => state.loginId);
   const draft = useProfileEditStore((state) => state.draft);
   const clearDraft = useProfileEditStore((state) => state.clearDraft);
 
@@ -55,7 +52,7 @@ export function ProfileEditScreen() {
   const sheetTranslateY = useRef(new Animated.Value(SHEET_DISMISS_Y)).current;
 
   useEffect(() => {
-    if (!isAuthenticated || !loginId || draft) {
+    if (draft) {
       return;
     }
 
@@ -100,7 +97,7 @@ export function ProfileEditScreen() {
     return () => {
       isMounted = false;
     };
-  }, [draft, isAuthenticated, loadAttempt, loginId]);
+  }, [draft, loadAttempt]);
 
   useEffect(() => {
     if (!regenerationSheetOpen) {
@@ -174,10 +171,6 @@ export function ProfileEditScreen() {
       },
     }),
   ).current;
-
-  if (!isAuthenticated || !loginId) {
-    return <Redirect href={'/login' as Href} />;
-  }
 
   if (profileMissing) {
     return <Redirect href={'/profile-setup' as Href} />;

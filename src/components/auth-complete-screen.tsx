@@ -1,4 +1,4 @@
-import { Redirect, type Href, useRouter } from 'expo-router';
+import { type Href, useRouter } from 'expo-router';
 import { Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { PrimaryButton } from '@/components/primary-button';
@@ -6,13 +6,8 @@ import { useAuthStore } from '@/store/auth-store';
 
 export function AuthCompleteScreen() {
   const router = useRouter();
-  const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
   const loginId = useAuthStore((state) => state.loginId);
   const clearAuthentication = useAuthStore((state) => state.clearAuthentication);
-
-  if (!isAuthenticated || !loginId) {
-    return <Redirect href={'/login' as Href} />;
-  }
 
   const handleLogout = () => {
     clearAuthentication();

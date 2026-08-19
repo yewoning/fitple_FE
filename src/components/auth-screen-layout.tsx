@@ -1,5 +1,5 @@
 import type { PropsWithChildren, ReactNode } from 'react';
-import { useRouter } from 'expo-router';
+import { type Href, useRouter } from 'expo-router';
 import {
   Image,
   KeyboardAvoidingView,
@@ -49,7 +49,7 @@ export function AuthScreenLayout({
       return;
     }
 
-    router.replace('/');
+    router.replace('/' as Href);
   };
 
   return (

@@ -10,7 +10,7 @@ import { useProfileEditStore } from '@/store/profile-edit-store';
 import type { ProfileFile, ProfileGenerateRequest, ProfileUploadAsset } from '@/types/profile';
 import * as DocumentPicker from 'expo-document-picker';
 import { LinearGradient } from 'expo-linear-gradient';
-import { Redirect, type Href, useRouter } from 'expo-router';
+import { type Href, useRouter } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';
 import {
   Image,
@@ -54,8 +54,6 @@ function formatMessageTime() {
 
 export function ProfileSetupScreen() {
   const router = useRouter();
-  const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
-  const loginId = useAuthStore((state) => state.loginId);
   const memberId = useAuthStore((state) => state.memberId);
   const scrollRef = useRef<ScrollView>(null);
   const messageSequence = useRef(0);
@@ -79,10 +77,6 @@ export function ProfileSetupScreen() {
   const hasProfileResult = messages.some((message) => message.kind === 'analysisResult');
 
   useEffect(() => {
-    if (!isAuthenticated || !loginId) {
-      return;
-    }
-
     let isMounted = true;
 
     void getProfile()
@@ -121,11 +115,7 @@ export function ProfileSetupScreen() {
     return () => {
       isMounted = false;
     };
-  }, [isAuthenticated, loginId]);
-
-  if (!isAuthenticated || !loginId) {
-    return <Redirect href={'/login' as Href} />;
-  }
+  }, []);
 
   const nextMessageId = () => {
     messageSequence.current += 1;
