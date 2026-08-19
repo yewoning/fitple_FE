@@ -155,3 +155,5 @@ npm run lint
 - `api-first`에서 일부 API만 성공하면 실제 데이터와 목업 데이터가 화면별로 섞일 수 있습니다. 발표는 반드시 `mock-only`를 사용합니다.
 - 목업 저장소는 범용 백엔드가 아니라 기획 플로우 시연용입니다. 페이지네이션·동시성·영구 저장 동작은 구현하지 않습니다.
 - 채팅·마이페이지의 기존 fixture는 아직 `src/api/mockData.ts`에 있습니다. 새 프로젝트 도메인 fixture는 `src/mocks`에 추가하고, 기존 파일을 건드릴 때에는 도메인 단위로 이동합니다.
+- 지원(`submitApplication`)은 `mock-only`에서만 즉시 참여로 시뮬레이션됩니다. 실제 백엔드는 게시자가 지원을 수락(`POST /applications/{id}/accept`, 게시자 전용)해야 팀원으로 등록되는 구조라, `api-first`/`api-only`에서는 지원 제출이 `PENDING`으로만 남고 팀 결성 화면(`chat/[projectId]/team-ready-*`)으로 자동 이동하지 않습니다. 오너용 지원 목록·수락·거절 화면은 아직 구현되지 않았습니다.
+- 팀 결성 화면(`team-ready-roadmap.tsx`)의 로드맵은 프로젝트 전용 생성 API가 없어 기존 채팅 도메인의 공용 목업(`mockRoadmap`)을 그대로 재사용합니다. 프로젝트별로 분리되지 않은 기존 한계가 이 화면에도 그대로 적용됩니다.

@@ -9,7 +9,8 @@ export interface DemoUser {
 
 export interface DemoProjectRecord {
   detail: ProjectDetailResponse;
-  participantRoles: Record<number, string>;
+  participantRoles: Record<number, string | null>;
+  ownerRole: string | null;
 }
 
 export const DEMO_USERS: Record<DemoUserRole, DemoUser> = {
@@ -35,6 +36,7 @@ export const DEMO_PROJECTS: DemoProjectRecord[] = [
       memberName: '민지',
     },
     participantRoles: {},
+    ownerRole: null,
   },
   {
     detail: {
@@ -53,6 +55,7 @@ export const DEMO_PROJECTS: DemoProjectRecord[] = [
       memberName: '지우',
     },
     participantRoles: { 2: 'UI/UX 디자이너' },
+    ownerRole: null,
   },
   {
     detail: {
@@ -71,6 +74,7 @@ export const DEMO_PROJECTS: DemoProjectRecord[] = [
       memberName: '민지',
     },
     participantRoles: { 2: '프론트엔드 개발자' },
+    ownerRole: null,
   },
   {
     detail: {
@@ -89,6 +93,7 @@ export const DEMO_PROJECTS: DemoProjectRecord[] = [
       memberName: '하윤',
     },
     participantRoles: {},
+    ownerRole: null,
   },
 ];
 

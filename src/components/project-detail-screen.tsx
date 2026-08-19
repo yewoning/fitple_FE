@@ -17,6 +17,7 @@ export interface ProjectDetailScreenProps {
 
 const MENU_DISMISS_Y = 400;
 const FALLBACK_ICON = require('../../assets/icons/idea.webp');
+const LOAD_ERROR_MESSAGE = '프로젝트를 불러오지 못했습니다. 잠시 후 다시 시도해주세요.';
 
 export function ProjectDetailScreen({ projectId }: ProjectDetailScreenProps) {
   const router = useRouter();
@@ -27,6 +28,7 @@ export function ProjectDetailScreen({ projectId }: ProjectDetailScreenProps) {
 
   const [project, setProject] = useState<ProjectDetailResponse | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [isBookmarked, setIsBookmarked] = useState(false);
 
   const [showMenu, setShowMenu] = useState(false);
@@ -38,12 +40,14 @@ export function ProjectDetailScreen({ projectId }: ProjectDetailScreenProps) {
   const loadProject = useCallback(async () => {
     if (!projectId) return;
     setIsLoading(true);
+    setLoadError(null);
 
     try {
       const detail = await getProject(projectId);
       setProject(detail);
-    } catch {
+    } catch (error) {
       setProject(null);
+      setLoadError(error instanceof ApiError ? error.message : LOAD_ERROR_MESSAGE);
     } finally {
       setIsLoading(false);
     }
@@ -137,7 +141,31 @@ export function ProjectDetailScreen({ projectId }: ProjectDetailScreenProps) {
   }
 
   if (!project) {
-    return null;
+    return (
+      <View className="flex-1 bg-gray-1">
+        <SafeAreaView edges={['top']} className="flex-1">
+          <View className="flex-row items-center px-3 pt-1">
+            <Pressable
+              accessibilityLabel="이전 화면으로 돌아가기"
+              accessibilityRole="button"
+              className="h-11 w-11 items-center justify-center"
+              hitSlop={4}
+              onPress={() => router.back()}
+            >
+              <Text className="font-sans text-2xl text-gray-4">←</Text>
+            </Pressable>
+          </View>
+          <View className="flex-1 items-center justify-center gap-3 px-5">
+            <Text className="text-center font-sans text-sm text-gray-5">
+              {loadError ?? LOAD_ERROR_MESSAGE}
+            </Text>
+            <Pressable accessibilityRole="button" onPress={loadProject}>
+              <Text className="font-sans-medium text-sm text-sky-blue">다시 시도</Text>
+            </Pressable>
+          </View>
+        </SafeAreaView>
+      </View>
+    );
   }
 
   const status = API_STATUS_TO_PROJECT_STATUS[project.status] ?? 'recruiting';
@@ -255,7 +283,13 @@ export function ProjectDetailScreen({ projectId }: ProjectDetailScreenProps) {
                 <PrimaryButton
                   label="지원하기"
                   disabled={isOwner}
-                  onPress={() => router.push(`/project-apply?id=${project.projectId}` as Href)}
+                  onPress={() =>
+                    router.push(
+                      `/project-apply?id=${project.projectId}&title=${encodeURIComponent(
+                        project.title
+                      )}` as Href
+                    )
+                  }
                 />
               </View>
             </View>

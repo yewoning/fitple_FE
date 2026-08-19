@@ -4,11 +4,13 @@ import {
   generateDemoProjectIntro,
   getDemoMyProjects,
   getDemoProject,
+  getDemoProjectMembers,
   getDemoRecommendedProjects,
   getDemoRecruitingProjects,
 } from '@/mocks/demo-store';
 import { withDemoFallback } from '@/services/demo-fallback';
 import type {
+  AssignedRole,
   MyProjectListItem,
   ProjectAiGenerateRequest,
   ProjectAiGenerateResponse,
@@ -16,6 +18,7 @@ import type {
   ProjectCreateRequest,
   ProjectCreateResponse,
   ProjectDetailResponse,
+  ProjectMemberListItem,
   ProjectStatus,
   ProjectUpdateRequest,
   RecruitingProjectCardData,
@@ -124,6 +127,23 @@ export function generateProjectIntro(payload: ProjectAiGenerateRequest) {
         body: form,
       }),
     () => generateDemoProjectIntro(payload),
+  );
+}
+
+export function getProjectMembers(projectId: string | number) {
+  return withDemoFallback(
+    () => requestRaw<ProjectMemberListItem[]>(`/api/projects/${projectId}/members`),
+    () => getDemoProjectMembers(Number(projectId)),
+  );
+}
+
+export function assignProjectRoles(projectId: string | number) {
+  return withDemoFallback(
+    () =>
+      requestRaw<AssignedRole[]>(`/api/projects/${projectId}/assign-roles`, {
+        method: 'POST',
+      }),
+    () => demoStore.getState().assignRoles(Number(projectId)),
   );
 }
 

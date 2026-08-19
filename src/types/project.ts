@@ -111,3 +111,23 @@ export interface ProjectCreateResponse {
  * PUT /api/projects/{projectId}?memberId= — 보낸 필드만 수정
  */
 export type ProjectUpdateRequest = Partial<ProjectCreateRequest>;
+
+/**
+ * GET /api/projects/{projectId}/members
+ */
+export interface ProjectMemberListItem {
+  memberId: number;
+  name: string;
+  role: string | null;
+  detailRole?: string;
+}
+
+/**
+ * POST /api/projects/{projectId}/assign-roles
+ */
+export interface AssignedRole {
+  memberId: number;
+  name: string;
+  role: string;
+  reason: string;
+}
