@@ -292,30 +292,28 @@ function MessageBubble({ message, translateOn }: { message: ChatMessage; transla
   const showTranslation = translateOn && message.translatedContent;
 
   return (
-    <View className="gap-1.5">
-      <View className="max-w-[85%] flex-row gap-2">
-        <Avatar uri={message.profileImageUrl} size={32} />
-        <View className="flex-1">
-          <Text className="mb-1 font-sans text-[11px] text-gray-6">{message.senderName}</Text>
-          <View className="flex-row items-end gap-1.5">
-            <View className="rounded-2xl rounded-bl-sm bg-white px-3.5 py-2.5">
-              <Text className="font-sans text-[15px] text-black">{message.content}</Text>
-            </View>
-            {!showTranslation ? (
-              <Text className="font-sans text-[11px] text-gray-4">{formatTime(message.sentAt)}</Text>
-            ) : null}
+    <View className="max-w-[85%] flex-row gap-2">
+      <Avatar uri={message.profileImageUrl} size={32} />
+      <View className="flex-1 gap-1.5">
+        <Text className="mb-1 font-sans text-[11px] text-gray-6">{message.senderName}</Text>
+        <View className="flex-row items-end gap-1.5">
+          <View className="rounded-2xl rounded-bl-sm bg-white px-3.5 py-2.5">
+            <Text className="font-sans text-[15px] text-black">{message.content}</Text>
           </View>
+          {!showTranslation ? (
+            <Text className="font-sans text-[11px] text-gray-4">{formatTime(message.sentAt)}</Text>
+          ) : null}
         </View>
-      </View>
 
-      {showTranslation ? (
-        <View className="max-w-[80%] flex-row items-end gap-1.5 self-end">
-          <Text className="font-sans text-[11px] text-gray-4">{formatTime(message.sentAt)}</Text>
-          <View className="rounded-2xl rounded-br-sm bg-white-dark-sky-blue px-3.5 py-2.5">
-            <Text className="font-sans text-[15px] text-dark-blue">{message.translatedContent}</Text>
+        {showTranslation ? (
+          <View className="flex-row items-end gap-1.5">
+            <View className="rounded-2xl rounded-bl-sm bg-white-dark-sky-blue px-3.5 py-2.5">
+              <Text className="font-sans text-[15px] text-dark-blue">{message.translatedContent}</Text>
+            </View>
+            <Text className="font-sans text-[11px] text-gray-4">{formatTime(message.sentAt)}</Text>
           </View>
-        </View>
-      ) : null}
+        ) : null}
+      </View>
     </View>
   );
 }
