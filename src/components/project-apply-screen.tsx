@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { useRouter } from 'expo-router';
+import { type Href, useRouter } from 'expo-router';
 import {
   ActivityIndicator,
   Animated,
@@ -18,6 +18,7 @@ import { PrimaryButton } from '@/components/primary-button';
 import { ApiError } from '@/services/api-client';
 import { generateApplicationIntro, submitApplication } from '@/services/application';
 import { getMyProfile } from '@/services/member';
+import { assignProjectRoles } from '@/services/project';
 import { useAuthStore } from '@/store/auth-store';
 
 interface IntroTemplate {
@@ -76,9 +77,10 @@ const FALLBACK_NAME = '민지';
 
 export interface ProjectApplyScreenProps {
   projectId?: string;
+  projectTitle?: string;
 }
 
-export function ProjectApplyScreen({ projectId }: ProjectApplyScreenProps) {
+export function ProjectApplyScreen({ projectId, projectTitle }: ProjectApplyScreenProps) {
   const router = useRouter();
   const memberId = useAuthStore((state) => state.memberId);
   const [name, setName] = useState('');
@@ -88,6 +90,7 @@ export function ProjectApplyScreen({ projectId }: ProjectApplyScreenProps) {
   const [isGenerating, setIsGenerating] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
+  const [showCompleteModal, setShowCompleteModal] = useState(false);
   const sheetTranslateY = useRef(new Animated.Value(SHEET_DISMISS_Y)).current;
 
   useEffect(() => {
@@ -119,13 +122,27 @@ export function ProjectApplyScreen({ projectId }: ProjectApplyScreenProps) {
     setSubmitError(null);
 
     try {
-      await submitApplication(projectId, memberId, { introText: description });
-      router.back();
+      const result = await submitApplication(projectId, memberId, { introText: description });
+
+      if (result.isTeamComplete) {
+        const assignments = await assignProjectRoles(projectId);
+        router.replace({
+          pathname: '/chat/[projectId]/team-ready-members',
+          params: { projectId, title: projectTitle ?? '', assignments: JSON.stringify(assignments) },
+        });
+      } else {
+        setShowCompleteModal(true);
+      }
     } catch (error) {
       setSubmitError(error instanceof ApiError ? error.message : '지원서 제출에 실패했습니다.');
     } finally {
       setIsSubmitting(false);
     }
+  }
+
+  function handleCompleteConfirm() {
+    setShowCompleteModal(false);
+    router.replace('/mypage/applications' as Href);
   }
 
   useEffect(() => {
@@ -356,6 +373,23 @@ export function ProjectApplyScreen({ projectId }: ProjectApplyScreenProps) {
             </View>
           </Animated.View>
         </>
+      ) : null}
+
+      {showCompleteModal ? (
+        <View
+          className="absolute bottom-0 left-0 right-0 top-0 items-center justify-center px-8"
+          style={{ backgroundColor: 'rgba(0,0,0,0.4)' }}
+        >
+          <View className="w-full max-w-xs items-center rounded-2xl bg-white px-6 py-8">
+            <Text className="font-sans-bold text-lg text-black">지원이 완료됐어요</Text>
+            <Text className="mt-2 text-center font-sans text-sm text-gray-6">
+              지원 현황에서 진행 상태를 확인할 수 있어요.
+            </Text>
+            <View className="mt-6 w-full">
+              <PrimaryButton label="확인" onPress={handleCompleteConfirm} />
+            </View>
+          </View>
+        </View>
       ) : null}
     </CommonLayout>
   );

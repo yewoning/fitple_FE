@@ -19,19 +19,20 @@ import { ApiError } from '@/services/api-client';
 import { createProject, generateProjectIntro, uploadProjectImage } from '@/services/project';
 import { useAuthStore } from '@/store/auth-store';
 import { useProjectInviteStore } from '@/store/project-invite-store';
-import { formatShortDateLabel } from '@/utils/dday';
+import { UNKNOWN_DATE_LABEL, formatShortDateLabel } from '@/utils/dday';
 import { pickImageFile } from '@/utils/image-picker';
-import type { ProjectAiGenerateResponse, ProjectDetailInfoRow } from '@/types/project';
+import type { ProjectAiGenerateResult, ProjectDetailInfoRow } from '@/types/project';
 
 const DISMISS_DISTANCE = 100;
 const DISMISS_VELOCITY = 0.5;
 
-function toInfoRows(result: ProjectAiGenerateResponse): ProjectDetailInfoRow[] {
+function toInfoRows(result: ProjectAiGenerateResult): ProjectDetailInfoRow[] {
+  // AI가 채우지 못한 항목은 빈칸 대신 '미정'으로 보여, 사용자가 재생성 여부를 판단하게 한다.
   return [
-    { label: '모집 인원', value: `${result.recruitCount}명` },
-    { label: '모집 역할', value: result.roles.join(' · ') },
+    { label: '모집 인원', value: result.recruitCount > 0 ? `${result.recruitCount}명` : UNKNOWN_DATE_LABEL },
+    { label: '모집 역할', value: result.roles.join(' · ') || UNKNOWN_DATE_LABEL },
     { label: '진행 기간', value: formatShortDateLabel(result.periodEnd) },
-    { label: '회의 일정', value: result.meetingSchedule },
+    { label: '회의 일정', value: result.meetingSchedule || UNKNOWN_DATE_LABEL },
     { label: '모집 마감', value: formatShortDateLabel(result.deadline) },
   ];
 }
@@ -45,7 +46,7 @@ export function ProjectCreateScreen() {
   const [titleError, setTitleError] = useState<string | null>(null);
   const [descriptionError, setDescriptionError] = useState<string | null>(null);
   const [showAiResult, setShowAiResult] = useState(false);
-  const [aiResult, setAiResult] = useState<ProjectAiGenerateResponse | null>(null);
+  const [aiResult, setAiResult] = useState<ProjectAiGenerateResult | null>(null);
   const [isGenerating, setIsGenerating] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
@@ -129,8 +130,11 @@ export function ProjectCreateScreen() {
     await generateAndStore();
   }
 
-  async function createProjectAndNavigate(result: ProjectAiGenerateResponse) {
-    if (memberId === null) return;
+  async function createProjectAndNavigate(result: ProjectAiGenerateResult) {
+    if (memberId === null) {
+      setFormError('로그인 정보를 확인할 수 없습니다. 다시 로그인해주세요.');
+      return;
+    }
     setIsSubmitting(true);
     setFormError(null);
 
@@ -377,6 +381,7 @@ export function ProjectCreateScreen() {
             </Text>
           </View>
 
+          <ScrollView style={{ maxHeight: 480 }} showsVerticalScrollIndicator={false}>
           <View className="mt-5 rounded-2xl bg-white p-4">
             <View className="flex-row items-center gap-1.5">
               <Image
@@ -422,6 +427,7 @@ export function ProjectCreateScreen() {
           <View className="mt-5">
             <PrimaryButton label="완료하기" loading={isSubmitting} onPress={handleSheetSubmit} />
           </View>
+          </ScrollView>
           </View>
           </View>
         </Animated.View>

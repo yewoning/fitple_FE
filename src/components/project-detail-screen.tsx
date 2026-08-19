@@ -5,10 +5,16 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { PrimaryButton } from '@/components/primary-button';
 import { StatusBadge } from '@/components/project-card';
 import { ApiError } from '@/services/api-client';
-import { API_STATUS_TO_PROJECT_STATUS, addScrap, deleteProject, getProject } from '@/services/project';
+import {
+  API_STATUS_TO_PROJECT_STATUS,
+  addScrap,
+  deleteProject,
+  getProject,
+  resolveDDay,
+} from '@/services/project';
 import { useAuthStore } from '@/store/auth-store';
 import { useProjectInviteStore } from '@/store/project-invite-store';
-import { formatDDayValue, formatShortDateLabel } from '@/utils/dday';
+import { formatDDayValue, formatShortDateLabel, getDDayLabel } from '@/utils/dday';
 import type { ProjectDetailInfoRow, ProjectDetailResponse } from '@/types/project';
 
 export interface ProjectDetailScreenProps {
@@ -17,6 +23,17 @@ export interface ProjectDetailScreenProps {
 
 const MENU_DISMISS_Y = 400;
 const FALLBACK_ICON = require('../../assets/icons/idea.webp');
+const LOAD_ERROR_MESSAGE = '프로젝트를 불러오지 못했습니다. 잠시 후 다시 시도해주세요.';
+
+/**
+ * 서버가 D-day를 안 줘도 상세 화면은 deadline을 갖고 있으므로 직접 계산해 보여준다.
+ * (예전에는 D-day가 없으면 'D+NaN'이 그대로 노출됐다.)
+ * 마감일마저 비어 있으면 표시할 게 없으므로 아무것도 그리지 않는다.
+ */
+function getDetailDDayText(project: ProjectDetailResponse): string | null {
+  const dDay = resolveDDay(project);
+  return typeof dDay === 'number' ? formatDDayValue(dDay) : getDDayLabel(project.deadline);
+}
 
 export function ProjectDetailScreen({ projectId }: ProjectDetailScreenProps) {
   const router = useRouter();
@@ -27,6 +44,7 @@ export function ProjectDetailScreen({ projectId }: ProjectDetailScreenProps) {
 
   const [project, setProject] = useState<ProjectDetailResponse | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [isBookmarked, setIsBookmarked] = useState(false);
 
   const [showMenu, setShowMenu] = useState(false);
@@ -38,12 +56,14 @@ export function ProjectDetailScreen({ projectId }: ProjectDetailScreenProps) {
   const loadProject = useCallback(async () => {
     if (!projectId) return;
     setIsLoading(true);
+    setLoadError(null);
 
     try {
       const detail = await getProject(projectId);
       setProject(detail);
-    } catch {
+    } catch (error) {
       setProject(null);
+      setLoadError(error instanceof ApiError ? error.message : LOAD_ERROR_MESSAGE);
     } finally {
       setIsLoading(false);
     }
@@ -137,7 +157,31 @@ export function ProjectDetailScreen({ projectId }: ProjectDetailScreenProps) {
   }
 
   if (!project) {
-    return null;
+    return (
+      <View className="flex-1 bg-gray-1">
+        <SafeAreaView edges={['top']} className="flex-1">
+          <View className="flex-row items-center px-3 pt-1">
+            <Pressable
+              accessibilityLabel="이전 화면으로 돌아가기"
+              accessibilityRole="button"
+              className="h-11 w-11 items-center justify-center"
+              hitSlop={4}
+              onPress={() => router.back()}
+            >
+              <Text className="font-sans text-2xl text-gray-4">←</Text>
+            </Pressable>
+          </View>
+          <View className="flex-1 items-center justify-center gap-3 px-5">
+            <Text className="text-center font-sans text-sm text-gray-5">
+              {loadError ?? LOAD_ERROR_MESSAGE}
+            </Text>
+            <Pressable accessibilityRole="button" onPress={loadProject}>
+              <Text className="font-sans-medium text-sm text-sky-blue">다시 시도</Text>
+            </Pressable>
+          </View>
+        </SafeAreaView>
+      </View>
+    );
   }
 
   const status = API_STATUS_TO_PROJECT_STATUS[project.status] ?? 'recruiting';
@@ -187,7 +231,7 @@ export function ProjectDetailScreen({ projectId }: ProjectDetailScreenProps) {
             <Text className="mt-1.5 font-sans-bold text-xl text-black">{project.title}</Text>
             <View className="mt-1.5 flex-row items-center gap-2">
               <Text className="font-sans-semibold text-xs text-dark-blue">
-                {formatDDayValue(project.dDay)}
+                {getDetailDDayText(project)}
               </Text>
               <Text className="font-sans text-xs text-gray-5">
                 모집기간 {formatShortDateLabel(project.deadline)}
@@ -255,7 +299,13 @@ export function ProjectDetailScreen({ projectId }: ProjectDetailScreenProps) {
                 <PrimaryButton
                   label="지원하기"
                   disabled={isOwner}
-                  onPress={() => router.push(`/project-apply?id=${project.projectId}` as Href)}
+                  onPress={() =>
+                    router.push(
+                      `/project-apply?id=${project.projectId}&title=${encodeURIComponent(
+                        project.title
+                      )}` as Href
+                    )
+                  }
                 />
               </View>
             </View>

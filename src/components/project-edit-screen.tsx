@@ -18,9 +18,9 @@ import { PrimaryButton } from '@/components/primary-button';
 import { ApiError } from '@/services/api-client';
 import { generateProjectIntro, getProject, updateProject, uploadProjectImage } from '@/services/project';
 import { useAuthStore } from '@/store/auth-store';
-import { formatShortDateLabel } from '@/utils/dday';
+import { UNKNOWN_DATE_LABEL, formatShortDateLabel } from '@/utils/dday';
 import { pickImageFile } from '@/utils/image-picker';
-import type { ProjectAiGenerateResponse, ProjectDetailInfoRow } from '@/types/project';
+import type { ProjectAiGenerateResult, ProjectDetailInfoRow } from '@/types/project';
 
 const DISMISS_DISTANCE = 100;
 const DISMISS_VELOCITY = 0.5;
@@ -31,12 +31,13 @@ export interface ProjectEditScreenProps {
   projectId?: string;
 }
 
-function toInfoRows(result: ProjectAiGenerateResponse): ProjectDetailInfoRow[] {
+function toInfoRows(result: ProjectAiGenerateResult): ProjectDetailInfoRow[] {
+  // AI가 채우지 못한 항목은 빈칸 대신 '미정'으로 보여, 사용자가 재생성 여부를 판단하게 한다.
   return [
-    { label: '모집 인원', value: `${result.recruitCount}명` },
-    { label: '모집 역할', value: result.roles.join(' · ') },
+    { label: '모집 인원', value: result.recruitCount > 0 ? `${result.recruitCount}명` : UNKNOWN_DATE_LABEL },
+    { label: '모집 역할', value: result.roles.join(' · ') || UNKNOWN_DATE_LABEL },
     { label: '진행 기간', value: formatShortDateLabel(result.periodEnd) },
-    { label: '회의 일정', value: result.meetingSchedule },
+    { label: '회의 일정', value: result.meetingSchedule || UNKNOWN_DATE_LABEL },
     { label: '모집 마감', value: formatShortDateLabel(result.deadline) },
   ];
 }
@@ -71,7 +72,7 @@ export function ProjectEditScreen({ projectId }: ProjectEditScreenProps) {
   const [isGenerating, setIsGenerating] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showAiResult, setShowAiResult] = useState(false);
-  const [aiResult, setAiResult] = useState<ProjectAiGenerateResponse | null>(null);
+  const [aiResult, setAiResult] = useState<ProjectAiGenerateResult | null>(null);
   const sheetTranslateY = useRef(new Animated.Value(800)).current;
 
   const loadProject = useCallback(async () => {
@@ -91,9 +92,11 @@ export function ProjectEditScreen({ projectId }: ProjectEditScreenProps) {
       setRecruitCount(`${detail.recruitCount}명`);
       setOriginalRecruitCount(detail.recruitCount);
       setRecruitRole(detail.roles.join(' · '));
-      setPeriodEnd(detail.periodEnd);
+      // 날짜가 비어 있는 프로젝트도 있다(AI가 일정을 못 정한 채 생성된 경우).
+      // 입력 필드는 빈 문자열로 두고 사용자가 직접 채우게 한다.
+      setPeriodEnd(detail.periodEnd ?? '');
       setMeetingSchedule(detail.meetingSchedule);
-      setDeadline(detail.deadline);
+      setDeadline(detail.deadline ?? '');
       setImageUrl(detail.imageUrl);
     } catch (error) {
       setLoadError(error instanceof ApiError ? error.message : LOAD_ERROR_MESSAGE);
