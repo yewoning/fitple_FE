@@ -4,8 +4,9 @@ import { Image, ScrollView, Text, View } from 'react-native';
 import { CommonLayout, type BottomNavKey } from '@/components/layout';
 import { ProjectCarousel } from '@/components/project-carousel';
 import { ProjectGridSection } from '@/components/project-grid-section';
+import { ApiError } from '@/services/api-client';
 import { getMyProfile } from '@/services/member';
-import { getMyProjects, getRecommendedProjects, toMyProjectCardData, toProjectCardData } from '@/services/project';
+import { getMyOngoingProjects, getRecommendedProjects, toProjectCardData } from '@/services/project';
 import { getTodayTasks, toTodayTaskCardData } from '@/services/task';
 import { useAuthStore } from '@/store/auth-store';
 import type { ProjectCardData } from '@/types/project';
@@ -35,13 +36,17 @@ const TODAY_TASK_MAX_ITEMS = 2;
 async function loadSection(
   fetchData: () => Promise<ProjectCardData[]>,
   apply: (state: SectionState) => void,
-  errorMessage: string,
+  fallbackErrorMessage: string,
   isActive: () => boolean,
 ) {
   try {
     const data = await fetchData();
     if (isActive()) apply({ data, isLoading: false, errorMessage: null });
-  } catch {
+  } catch (error) {
+    // 서버가 사유를 알려줬으면 그대로 보여준다. 홈의 목록 API는 세션이 끊기면
+    // "로그인이 필요합니다."를 주는데, 이걸 "불러오지 못했어요"로 덮으면
+    // 사용자가 재로그인하면 된다는 걸 알 방법이 없다.
+    const errorMessage = error instanceof ApiError && error.message ? error.message : fallbackErrorMessage;
     if (isActive()) apply({ data: [], isLoading: false, errorMessage });
   }
 }
@@ -79,17 +84,9 @@ export function HomeScreen() {
         alive,
       );
 
-      // /api/projects/my는 모집중·완료까지 포함한 '내 프로젝트 전체'를 준다.
-      // 이 섹션은 '현재 진행중인' 프로젝트만 보여줘야 하므로 여기서 걸러낸다.
-      loadSection(
-        () =>
-          getMyProjects(memberId).then((items) =>
-            items.map(toMyProjectCardData).filter((project) => project.status === 'in-progress'),
-          ),
-        setInProgress,
-        IN_PROGRESS_ERROR,
-        alive,
-      );
+      // 어떤 프로젝트를 '진행중'으로 볼지는 서버 상태값에 달려 있어 서비스 계층이 정한다
+      // (getMyOngoingProjects 주석 참고).
+      loadSection(() => getMyOngoingProjects(memberId), setInProgress, IN_PROGRESS_ERROR, alive);
 
       loadSection(
         () => getTodayTasks(memberId).then((items) => items.map(toTodayTaskCardData)),
