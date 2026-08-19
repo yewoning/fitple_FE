@@ -344,10 +344,10 @@ export function ProjectDetailScreen({ projectId }: ProjectDetailScreenProps) {
                 onPress={handleBookmarkPress}
                 style={({ pressed }) => ({ opacity: pressed ? 0.7 : 1 })}
               >
-                <Image
-                  source={require('../../assets/icons/bookmark.png')}
-                  resizeMode="contain"
-                  style={{ width: 22, height: 22, tintColor: isBookmarked ? '#4876ee' : undefined }}
+                <Ionicons
+                  name={isBookmarked ? 'bookmark' : 'bookmark-outline'}
+                  size={22}
+                  color={isBookmarked ? '#0169ff' : '#484d5a'}
                 />
               </Pressable>
 
