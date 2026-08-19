@@ -63,7 +63,7 @@ export function LoginScreen() {
       const hasProfile = Boolean(profile.profileSummary?.trim());
 
       authenticate(values.loginId, signinResponse.memberId);
-      router.replace((hasProfile ? "/auth-complete" : "/profile-setup") as Href);
+      router.replace((hasProfile ? "/home" : "/profile-setup") as Href);
     } catch (error) {
       if (error instanceof ApiError && error.status === 404) {
         authenticate(values.loginId, signinResponse.memberId);
