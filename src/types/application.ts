@@ -31,3 +31,15 @@ export interface IntroductionListItem {
   introductionId: number;
   title: string;
 }
+
+/**
+ * GET /api/projects/{projectId}/applications — 게시자 본인만 조회 가능
+ */
+export interface ProjectApplicationItem {
+  applicationId: number;
+  memberId: number;
+  memberName: string;
+  introText: string;
+  /** PENDING | ACCEPTED | REJECTED */
+  status: string;
+}
