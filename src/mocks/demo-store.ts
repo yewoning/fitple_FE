@@ -38,6 +38,7 @@ interface DemoState {
   updateProject: (projectId: number, payload: ProjectUpdateRequest) => void;
   deleteProject: (projectId: number) => void;
   addScrap: (projectId: number) => void;
+  removeScrap: (projectId: number) => void;
   submitApplication: (
     projectId: number,
     memberId: number,
@@ -122,6 +123,11 @@ export const demoStore = createStore<DemoState>((set, get) => ({
       scrappedProjectIds: state.scrappedProjectIds.includes(projectId)
         ? state.scrappedProjectIds
         : [...state.scrappedProjectIds, projectId],
+    }));
+  },
+  removeScrap: (projectId) => {
+    set((state) => ({
+      scrappedProjectIds: state.scrappedProjectIds.filter((id) => id !== projectId),
     }));
   },
   submitApplication: (projectId, memberId, payload) => {
@@ -221,6 +227,21 @@ export function getDemoRecruitingProjects(): RecruitingProjectListItem[] {
   return demoStore
     .getState()
     .projects.filter((project) => project.detail.status === 'RECRUITING')
+    .map(({ detail }) => ({
+      projectId: detail.projectId,
+      title: detail.title,
+      roles: detail.roles,
+      dday: detail.dday,
+      status: detail.status,
+      imageUrl: detail.imageUrl,
+    }));
+}
+
+// 마이페이지 > 스크랩 화면용 목업. scrappedProjectIds에 있는 프로젝트만 골라서 보여준다.
+export function getDemoScraps(): RecruitingProjectListItem[] {
+  const { scrappedProjectIds, projects } = demoStore.getState();
+  return projects
+    .filter((project) => scrappedProjectIds.includes(project.detail.projectId))
     .map(({ detail }) => ({
       projectId: detail.projectId,
       title: detail.title,

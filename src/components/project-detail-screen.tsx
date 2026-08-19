@@ -2,14 +2,17 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { type Href, useRouter } from 'expo-router';
 import { ActivityIndicator, Animated, Image, Pressable, ScrollView, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { useQueryClient } from '@tanstack/react-query';
 import { PrimaryButton } from '@/components/primary-button';
 import { StatusBadge } from '@/components/project-card';
+import { mypageKeys } from '@/hooks/useMypage';
 import { ApiError } from '@/services/api-client';
 import {
   API_STATUS_TO_PROJECT_STATUS,
   addScrap,
   deleteProject,
   getProject,
+  removeScrap,
   resolveDDay,
 } from '@/services/project';
 import { useAuthStore } from '@/store/auth-store';
@@ -37,6 +40,7 @@ function getDetailDDayText(project: ProjectDetailResponse): string | null {
 
 export function ProjectDetailScreen({ projectId }: ProjectDetailScreenProps) {
   const router = useRouter();
+  const queryClient = useQueryClient();
   const memberId = useAuthStore((state) => state.memberId);
   const cachedInvite = useProjectInviteStore((state) =>
     projectId ? state.invites[projectId] : undefined
@@ -129,13 +133,27 @@ export function ProjectDetailScreen({ projectId }: ProjectDetailScreenProps) {
     }
   }
 
+  // 스크랩 버튼을 다시 누르면 취소도 되도록 토글로 동작합니다. 성공하면 마이페이지 >
+  // 스크랩 화면 캐시도 같이 갱신해서, 스크랩하자마자/취소하자마자 거기에 바로 반영됩니다.
   async function handleBookmarkPress() {
-    if (!project || memberId === null || isBookmarked) return;
+    if (!project || memberId === null) return;
+    const nextBookmarked = !isBookmarked;
     try {
-      await addScrap(memberId, project.projectId);
-      setIsBookmarked(true);
+      if (nextBookmarked) {
+        await addScrap(memberId, project.projectId);
+      } else {
+        await removeScrap(memberId, project.projectId);
+      }
+      setIsBookmarked(nextBookmarked);
+      queryClient.invalidateQueries({ queryKey: mypageKeys.scraps });
     } catch (error) {
-      setMenuError(error instanceof ApiError ? error.message : '북마크하지 못했습니다.');
+      setMenuError(
+        error instanceof ApiError
+          ? error.message
+          : nextBookmarked
+            ? '스크랩하지 못했습니다.'
+            : '스크랩 취소하지 못했습니다.'
+      );
     }
   }
 

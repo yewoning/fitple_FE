@@ -14,16 +14,21 @@ export default function ScrapScreen() {
   const scraps: ScrapItem[] = useMemo(() => data?.scraps ?? [], [data]);
   const [filter, setFilter] = useState<FilterKey>('ALL');
 
+  // 실제 API는 상태를 recruiting(모집중) / in-progress(진행중) / completed(마감)로 내려줍니다.
+  // "진행" 탭은 모집중+진행중을 다 보여주고, "마감" 탭은 완료된 것만 보여줍니다.
+  const isOpen = (status: ScrapItem['status']) => status === 'recruiting' || status === 'in-progress';
+  const isClosed = (status: ScrapItem['status']) => status === 'completed';
+
   const filtered = useMemo(() => {
     if (filter === 'ALL') return scraps;
-    return scraps.filter((s) => (filter === 'OPEN' ? s.status === 'recruiting' : s.status === 'recruit-closed'));
+    return scraps.filter((s) => (filter === 'OPEN' ? isOpen(s.status) : isClosed(s.status)));
   }, [scraps, filter]);
 
   const counts = useMemo(
     () => ({
       ALL: scraps.length,
-      OPEN: scraps.filter((s) => s.status === 'recruiting').length,
-      CLOSED: scraps.filter((s) => s.status === 'recruit-closed').length,
+      OPEN: scraps.filter((s) => isOpen(s.status)).length,
+      CLOSED: scraps.filter((s) => isClosed(s.status)).length,
     }),
     [scraps]
   );

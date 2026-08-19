@@ -7,6 +7,7 @@ import {
   getDemoProjectMembers,
   getDemoRecommendedProjects,
   getDemoRecruitingProjects,
+  getDemoScraps,
 } from '@/mocks/demo-store';
 import { withDemoFallback } from '@/services/demo-fallback';
 import type {
@@ -201,6 +202,34 @@ export function addScrap(memberId: number, projectId: string | number) {
         { method: 'POST' },
       ),
     () => demoStore.getState().addScrap(Number(projectId)),
+  );
+}
+
+export function removeScrap(memberId: number, projectId: string | number) {
+  return withDemoFallback(
+    () =>
+      requestRaw<undefined>(
+        `/api/mypage/scraps?memberId=${memberId}&projectId=${projectId}`,
+        { method: 'DELETE' },
+      ),
+    () => demoStore.getState().removeScrap(Number(projectId)),
+  );
+}
+
+/**
+ * GET /api/mypage/scraps?memberId= — 내가 스크랩한 프로젝트 목록.
+ * 응답은 { projects: [...] } 형태이고, 각 항목이 RecruitingProjectListItem과 같은 필드를
+ * 가지고 있어(api.json의 ProjectResponse) 그대로 재사용한다.
+ */
+export function getScraps(memberId: number) {
+  return withDemoFallback(
+    async () => {
+      const { projects } = await requestRaw<{ projects: RecruitingProjectListItem[] }>(
+        `/api/mypage/scraps?memberId=${memberId}`,
+      );
+      return projects ?? [];
+    },
+    () => getDemoScraps(),
   );
 }
 

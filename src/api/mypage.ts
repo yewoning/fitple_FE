@@ -1,23 +1,27 @@
-// ⚠️ 아래 3개 기능은 현재 백엔드 계약이 없거나 응답 형태가 화면과 안 맞아서 의도적으로
+// ⚠️ 아래 2개 기능은 현재 백엔드 계약이 없거나 응답 형태가 화면과 안 맞아서 의도적으로
 // mock-only 상태입니다. 계약이 확정되면 withDemoFallback으로 전환하세요.
-//   - getScraps → GET /api/mypage/scraps?memberId= 는 이제 실제로 호출 가능(로그인 응답에
-//     memberId가 옴)하지만, 응답이 { projects: ProjectResponse[] }이고 status가 그냥 string이라
-//     화면이 기대하는 'recruiting' | 'recruit-closed' 같은 값과 실제로 뭐가 오는지(예: "RECRUITING"?)
-//     스펙에 명시가 없습니다. 잘못 매핑하면 필터/뱃지가 다 깨지니, 백엔드팀에 status 값 목록을
-//     확인한 뒤 매핑해서 연동하세요.
 //   - getResumeVersions → GET /api/users/me/introductions?memberId= (AI 자소서/소개글 목록으로 추정)
 //   - getApplications → ⚠️ 스펙에 "내가 지원한 목록" 조회 API 자체가 없음(있는 건 프로젝트 주인이
 //     지원자를 보는 GET /api/projects/{projectId}/applications 뿐). 백엔드팀 확인 필요.
 //
 // getMyTodayTasks는 예외적으로 memberId 없이도 연동 가능해서 실제 데이터를 씁니다. (아래 참고)
+// getScraps는 main에 이미 있는 services/project.ts의 실제 스크랩 API + status 매핑
+// (API_STATUS_TO_PROJECT_STATUS)을 그대로 재사용해서 실제 연동으로 전환했습니다. (아래 참고)
 import { getAllMyTodayTasks } from './chat';
 import { withDemoFallback } from '@/services/demo-fallback';
+import { getScraps as getScrapsFromApi, toRecruitingProjectCardData } from '@/services/project';
 
 import { mockDelay } from './client';
-import { mockApplications, mockResumeVersions, mockScraps, mockTodayTasks } from './mockData';
+import { mockApplications, mockResumeVersions, mockTodayTasks } from './mockData';
 
-export async function getScraps() {
-  return mockDelay({ scraps: mockScraps });
+// ✅ 실제 연동: GET /api/mypage/scraps?memberId=
+export async function getScraps(memberId: number | null) {
+  if (memberId == null) {
+    // 로그인 전에는 부를 수 없으니 빈 목록으로 둡니다.
+    return { scraps: [] };
+  }
+  const items = await getScrapsFromApi(memberId);
+  return { scraps: items.map(toRecruitingProjectCardData) };
 }
 
 export async function getApplications() {
