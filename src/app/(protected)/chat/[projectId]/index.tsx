@@ -1,11 +1,13 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useQueryClient } from '@tanstack/react-query';
-import { useLocalSearchParams, useRouter } from 'expo-router';
-import { useEffect, useRef, useState } from 'react';
+import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   Alert,
   FlatList,
   KeyboardAvoidingView,
+  type NativeScrollEvent,
+  type NativeSyntheticEvent,
   Platform,
   ScrollView,
   Text,
@@ -18,14 +20,18 @@ import { CommonLayout } from '@/components/layout';
 import { Avatar } from '@/components/ui/avatar';
 import {
   chatKeys,
+  createLocalMessageId,
   useChatMessagesQuery,
+  useChatProjectSummary,
   useChatRoomQuery,
   useCreateMeetingMinuteMutation,
   useCreateTodayTasksMutation,
   useGenerateRoadmapMutation,
   useSendMessageMutation,
+  useTeamMembersQuery,
 } from '@/hooks/useChat';
-import { ChatMessage, MeetingMinuteDetail } from '@/types';
+import { useAuthStore } from '@/store/auth-store';
+import { ChatMessage, MeetingMinuteDetail, TeamMember } from '@/types';
 
 function formatTime(iso: string) {
   const d = new Date(iso);
@@ -34,6 +40,10 @@ function formatTime(iso: string) {
   const mm = d.getMinutes().toString().padStart(2, '0');
   return `${hh}:${mm}`;
 }
+
+// 사용자가 목록 맨 아래에서 이 정도 안쪽에 있으면 "아래를 보고 있다"고 판단해서
+// 새 메시지가 오면 따라 내려갑니다. 위쪽 지난 대화를 읽는 중이면 강제로 끌어내리지 않습니다.
+const AUTO_SCROLL_THRESHOLD = 80;
 
 const QUICK_ACTIONS = [
   { key: 'meeting', label: '회의록 생성' },
@@ -48,27 +58,74 @@ export default function ChatRoomScreen() {
   const listRef = useRef<FlatList>(null);
   const queryClient = useQueryClient();
 
+  const memberId = useAuthStore((state) => state.memberId);
   const { data: room } = useChatRoomQuery(projectId);
-  const { data: messageData } = useChatMessagesQuery(projectId);
-  const sendMessageMutation = useSendMessageMutation(projectId);
+  const roomId = room?.roomId ?? null;
+  const projectSummary = useChatProjectSummary(projectId);
+
+  // 화면이 실제로 떠 있을 때만 폴링합니다. 전송 중에는 잠깐 멈춰서,
+  // 낙관적 메시지와 서버 메시지가 동시에 보이는 깜빡임을 막습니다.
+  const [screenFocused, setScreenFocused] = useState(true);
+  const sendMessageMutation = useSendMessageMutation(roomId, memberId);
+  const { data: messages = [], refetch: refetchMessages } = useChatMessagesQuery(
+    roomId,
+    memberId,
+    screenFocused && !sendMessageMutation.isPending
+  );
+  const { data: memberData } = useTeamMembersQuery(projectId);
   const createMeetingMinuteMutation = useCreateMeetingMinuteMutation(projectId);
   const createTodayTasksMutation = useCreateTodayTasksMutation(projectId);
   const generateRoadmapMutation = useGenerateRoadmapMutation(projectId);
 
-  const [messages, setMessages] = useState<ChatMessage[]>([]);
+  // 핏봇 안내는 서버 채팅에 저장되지 않는 화면 전용 메시지라 별도로 들고 있습니다.
+  const [botMessages, setBotMessages] = useState<ChatMessage[]>([]);
   const [translateOn, setTranslateOn] = useState(true);
   const [input, setInput] = useState('');
   const [actionLoading, setActionLoading] = useState<string | null>(null);
   const [meetingPreview, setMeetingPreview] = useState<MeetingMinuteDetail | null>(null);
 
-  useEffect(() => {
-    if (messageData?.messages) setMessages(messageData.messages);
-  }, [messageData]);
+  // 폴링할 때마다 목록이 아래로 튀지 않도록, 첫 진입과 "아래를 보고 있을 때"만 따라 내려갑니다.
+  const stickToBottomRef = useRef(true);
+  const didInitialScrollRef = useRef(false);
+  const refetchRef = useRef(refetchMessages);
+  refetchRef.current = refetchMessages;
+  // refetch()는 enabled가 false여도 강제로 요청을 보내기 때문에,
+  // roomId/memberId가 아직 없을 때 잘못된 URL로 나가지 않도록 여기서 막습니다.
+  const canFetchRef = useRef(false);
+  canFetchRef.current = roomId != null && memberId != null;
+
+  // 방에 다시 들어오면(탭 이동 등으로 화면이 살아있는 경우 포함) 즉시 최신 내역을 받습니다.
+  useFocusEffect(
+    useCallback(() => {
+      setScreenFocused(true);
+      if (canFetchRef.current) refetchRef.current();
+      return () => setScreenFocused(false);
+    }, [])
+  );
+
+  // 서버 메시지엔 보낸 사람 이름이 없어서 팀원 목록으로 채워줍니다.
+  const memberNameById = useMemo(() => {
+    const map = new Map<number, string>();
+    for (const member of (memberData?.members ?? []) as TeamMember[]) {
+      map.set(member.memberId, member.name);
+    }
+    return map;
+  }, [memberData]);
+
+  const visibleMessages = useMemo(
+    () =>
+      [...messages, ...botMessages].sort((a, b) => {
+        const at = new Date(a.sentAt).getTime() || 0;
+        const bt = new Date(b.sentAt).getTime() || 0;
+        return at - bt;
+      }),
+    [messages, botMessages]
+  );
 
   // 채팅방에 들어오면 채팅 목록 화면의 안읽음 뱃지를 0으로 지워줍니다.
   // (실제 '읽음 처리' API가 따로 없어서, 목록 캐시를 직접 갱신하는 방식으로 처리)
   useEffect(() => {
-    queryClient.setQueryData(chatKeys.projects, (old: any) => {
+    queryClient.setQueryData([...chatKeys.projects, memberId], (old: any) => {
       if (!old?.projects) return old;
       return {
         ...old,
@@ -77,31 +134,51 @@ export default function ChatRoomScreen() {
         ),
       };
     });
-  }, [projectId, queryClient]);
+  }, [projectId, memberId, queryClient]);
+
+  const handleScroll = (event: NativeSyntheticEvent<NativeScrollEvent>) => {
+    const { layoutMeasurement, contentOffset, contentSize } = event.nativeEvent;
+    stickToBottomRef.current =
+      layoutMeasurement.height + contentOffset.y >= contentSize.height - AUTO_SCROLL_THRESHOLD;
+  };
+
+  const handleContentSizeChange = () => {
+    if (!didInitialScrollRef.current) {
+      if (visibleMessages.length === 0) return;
+      didInitialScrollRef.current = true;
+      listRef.current?.scrollToEnd({ animated: false });
+      return;
+    }
+    if (stickToBottomRef.current) listRef.current?.scrollToEnd({ animated: true });
+  };
 
   const handleSend = () => {
     const content = input.trim();
     if (!content) return;
+    if (roomId == null || memberId == null) {
+      Alert.alert('알림', '채팅방 정보를 불러오는 중이에요. 잠시 후 다시 시도해 주세요.');
+      return;
+    }
+
     setInput('');
-    const optimistic: ChatMessage = {
-      messageId: Date.now(),
-      senderId: 0,
-      senderName: '나',
-      content,
-      originalLanguage: 'ko',
-      translatedContent: null,
-      sentAt: new Date().toISOString(),
-      isMe: true,
-    };
-    setMessages((prev) => [...prev, optimistic]);
-    sendMessageMutation.mutate(content);
+    stickToBottomRef.current = true;
+    sendMessageMutation.mutate(
+      { content, tempId: createLocalMessageId() },
+      {
+        onError: () => {
+          // 실패하면 작성 내용을 돌려줍니다(그 사이 새로 입력한 게 있으면 건드리지 않음).
+          setInput((prev) => (prev ? prev : content));
+          Alert.alert('전송 실패', '메시지를 보내지 못했어요. 잠시 후 다시 시도해 주세요.');
+        },
+      }
+    );
   };
 
   const addBotMessage = (content: string) => {
-    setMessages((prev) => [
+    setBotMessages((prev) => [
       ...prev,
       {
-        messageId: Date.now(),
+        messageId: createLocalMessageId(),
         senderId: -1,
         senderName: '핏봇',
         content,
@@ -137,7 +214,7 @@ export default function ChatRoomScreen() {
   return (
     <CommonLayout
       header={{
-        title: room?.projectName ?? '채팅방',
+        title: projectSummary?.projectName ?? '채팅방',
         showBack: true,
         translation: { enabled: translateOn, onChange: setTranslateOn },
         showMore: true,
@@ -154,11 +231,19 @@ export default function ChatRoomScreen() {
         >
         <FlatList
           ref={listRef}
-          data={messages}
+          data={visibleMessages}
           keyExtractor={(item) => String(item.messageId)}
           contentContainerClassName="gap-3 p-4"
-          onContentSizeChange={() => listRef.current?.scrollToEnd({ animated: true })}
-          renderItem={({ item }) => <MessageBubble message={item} translateOn={translateOn} />}
+          onScroll={handleScroll}
+          scrollEventThrottle={16}
+          onContentSizeChange={handleContentSizeChange}
+          renderItem={({ item }) => (
+            <MessageBubble
+              message={item}
+              translateOn={translateOn}
+              senderName={item.senderName || memberNameById.get(item.senderId) || '팀원'}
+            />
+          )}
         />
 
         <View className="flex-row flex-wrap gap-2 px-4 pb-2">
@@ -283,7 +368,15 @@ function MeetingMinutePreviewSheet({
   );
 }
 
-function MessageBubble({ message, translateOn }: { message: ChatMessage; translateOn: boolean }) {
+function MessageBubble({
+  message,
+  translateOn,
+  senderName,
+}: {
+  message: ChatMessage;
+  translateOn: boolean;
+  senderName: string;
+}) {
   if (message.isBot) {
     return (
       <View className="max-w-[90%] flex-row gap-2 self-center">
@@ -315,7 +408,7 @@ function MessageBubble({ message, translateOn }: { message: ChatMessage; transla
     <View className="max-w-[85%] flex-row gap-2">
       <Avatar uri={message.profileImageUrl} size={32} />
       <View className="flex-1 gap-1.5">
-        <Text className="mb-1 font-sans text-[11px] text-gray-6">{message.senderName}</Text>
+        <Text className="mb-1 font-sans text-[11px] text-gray-6">{senderName}</Text>
         <View className="flex-row items-end gap-1.5">
           <View className="rounded-2xl rounded-bl-sm bg-white px-3.5 py-2.5">
             <Text className="font-sans text-[15px] text-black">{message.content}</Text>

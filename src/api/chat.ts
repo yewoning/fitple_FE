@@ -1,4 +1,11 @@
-import type { MeetingMinuteDetail, RoadmapPhase, TeamMember, TodayTask } from '@/types';
+import type {
+  ChatMessage,
+  ChatRoom,
+  MeetingMinuteDetail,
+  RoadmapPhase,
+  TeamMember,
+  TodayTask,
+} from '@/types';
 import { withDemoFallback } from '@/services/demo-fallback';
 
 import { apiClient, mockDelay } from './client';
@@ -66,50 +73,94 @@ export async function getChatProjects(memberId: number | null) {
   );
 }
 
-export async function enterChatRoom(projectId: number) {
+// ✅ 실제 연동: GET /api/chat/rooms/{projectId}
+// 응답은 { roomId, projectId } 뿐입니다. 이 roomId가 메시지 조회/전송 경로에 들어가는 값이라,
+// 예전처럼 projectId를 그대로 메시지 API에 넣으면 다른 방을 보거나 404가 납니다.
+export async function enterChatRoom(projectId: number): Promise<ChatRoom> {
   return withDemoFallback(
     async () => {
       const { data } = await apiClient.get(`/api/chat/rooms/${projectId}`);
-      return data;
+      return {
+        roomId: data?.roomId ?? projectId,
+        projectId: data?.projectId ?? projectId,
+      };
     },
     () => mockDelay(mockChatRoom(projectId))
   );
 }
 
-// 실제 응답(ChatMessageResponse)엔 senderName/translatedContent/isMe가 없어서 추가 매핑이 필요합니다.
-// 계약이 완성될 때까지 mock-only 또는 서버 장애 폴백에서 현재 화면 형태를 보장합니다.
-export async function getMessages(roomId: number, cursor?: number, size = 30) {
+// 서버가 주는 메시지 1건의 형태(ChatMessageResponse).
+// 화면 모델(ChatMessage)과 이름이 달라서(memberId/createdAt) 여기서 한 번에 번역해줍니다.
+interface ChatMessageResponse {
+  messageId?: number;
+  memberId?: number;
+  memberName?: string | null;
+  profileImageUrl?: string | null;
+  content?: string | null;
+  originalLanguage?: string | null;
+  translatedContent?: string | null;
+  createdAt?: string;
+}
+
+// ⚠️ 실제 응답엔 senderName/translatedContent/isMe가 없습니다.
+// - senderName: 빈 값으로 두고 화면에서 팀원 목록(getTeamMembers)으로 채웁니다.
+// - translatedContent: 번역 API가 아직 없어서 null 고정입니다.
+// - isMe: 로그인 memberId와 비교해서 훅(useChat)에서 계산합니다.
+function mapChatMessage(raw: ChatMessageResponse & Record<string, any>): ChatMessage {
+  return {
+    messageId: raw?.messageId ?? raw?.id ?? 0,
+    senderId: raw?.memberId ?? raw?.senderId ?? 0,
+    senderName: raw?.memberName ?? raw?.senderName ?? '',
+    profileImageUrl: raw?.profileImageUrl ?? null,
+    content: raw?.content ?? '',
+    originalLanguage: raw?.originalLanguage ?? 'ko',
+    translatedContent: raw?.translatedContent ?? null,
+    sentAt: raw?.createdAt ?? raw?.sentAt ?? new Date().toISOString(),
+  };
+}
+
+// ✅ 실제 연동: GET /api/chat/rooms/{roomId}/messages?size=
+// 응답이 배열이라 예전의 { messages, nextCursor, hasNext } 커서 페이징 형태가 아닙니다.
+// (서버에 커서 파라미터가 없어서 "최근 size개"만 받아옵니다 — 전체 이력 페이징은 아직 불가)
+export async function getMessages(roomId: number, size = 30): Promise<ChatMessage[]> {
   return withDemoFallback(
     async () => {
       const { data } = await apiClient.get(`/api/chat/rooms/${roomId}/messages`, {
-        params: { size, cursor },
+        params: { size },
       });
-      return data;
+      const list: any[] = Array.isArray(data) ? data : (data?.messages ?? []);
+      return list.map(mapChatMessage);
     },
-    () => mockDelay({ messages: mockMessages, nextCursor: null, hasNext: false })
+    () => mockDelay(mockMessages)
   );
 }
 
-// 실제 API가 전송자 memberId를 요구하는 경우 로그인 응답 계약과 함께 보완해야 합니다.
-export async function sendMessage(roomId: number, projectId: number, content: string) {
+// ✅ 실제 연동: POST /api/chat/rooms/{roomId}/messages?memberId=  (본문은 { content } 뿐)
+// memberId는 쿼리 파라미터로 "필수"라서 본문에 넣으면 서버가 누가 보냈는지 몰라 실패합니다.
+export async function sendMessage(
+  roomId: number,
+  memberId: number,
+  content: string
+): Promise<ChatMessage> {
   return withDemoFallback(
     async () => {
-      const { data } = await apiClient.post(`/api/chat/rooms/${roomId}/messages`, {
-        content,
-        projectId,
-      });
-      return data;
+      const { data } = await apiClient.post(
+        `/api/chat/rooms/${roomId}/messages`,
+        { content },
+        { params: { memberId } }
+      );
+      return mapChatMessage(data ?? {});
     },
     () =>
       mockDelay({
         messageId: Date.now(),
-        senderId: 1,
-        senderName: '김지수',
+        senderId: memberId,
+        senderName: '',
+        profileImageUrl: null,
         content,
         originalLanguage: 'ko',
         translatedContent: null,
         sentAt: new Date().toISOString(),
-        isMe: true,
       })
   );
 }

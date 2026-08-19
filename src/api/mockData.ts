@@ -277,10 +277,8 @@ export const mockChatProjects: ChatProjectSummary[] = [
 ];
 
 export const mockChatRoom = (projectId: number): ChatRoom => ({
+  roomId: projectId,
   projectId,
-  projectName: '교환학생 문화교류 콘텐츠 제작',
-  projectIconUrl: null,
-  memberCount: 6,
 });
 
 // 채팅방 화면 스크린샷 기준 대화 내용

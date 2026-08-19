@@ -20,11 +20,12 @@ export interface ChatProjectSummary {
   unreadCount: number;
 }
 
+// ⚠️ 서버 계약: GET /api/chat/rooms/{projectId} 는 { roomId, projectId } 만 돌려줍니다.
+// 방 이름/아이콘/인원수는 이 API가 주지 않아서 채팅 목록(ChatProjectSummary)에서 가져와 씁니다.
+// 메시지 조회/전송 경로에 들어가는 값은 projectId가 아니라 여기서 받은 roomId입니다.
 export interface ChatRoom {
+  roomId: number;
   projectId: number;
-  projectName: string;
-  projectIconUrl: string | null;
-  memberCount: number;
 }
 
 export interface ChatMessage {
