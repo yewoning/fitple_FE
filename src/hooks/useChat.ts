@@ -46,8 +46,10 @@ export function useChatProjectsQuery() {
 // 실시간 갱신은 WebSocket이 아니라 REST 폴링입니다. 채팅방 화면이 떠 있는 동안만
 // 2초마다 최근 메시지를 다시 받아서 다른 사람이 보낸 메시지를 반영합니다.
 export const CHAT_POLL_INTERVAL_MS = 2000;
-// 서버가 커서 페이징을 제공하지 않아서 "최근 30개"만 복원합니다.
-export const CHAT_MESSAGE_PAGE_SIZE = 30;
+// 화면에 표시할 최근 메시지 상한입니다.
+// 서버의 size 파라미터가 고장나 있어서(api/chat.ts getMessages 주석 참고) 전체를 받아온 뒤
+// 클라이언트에서 자릅니다. 서버 요청 크기가 아니라 "표시 개수"라는 점에 주의하세요.
+export const CHAT_MESSAGE_DISPLAY_LIMIT = 30;
 
 // 전송 중인 임시 메시지 / 핏봇 안내처럼 서버에 없는 메시지에 쓰는 로컬 ID입니다.
 // 서버 messageId(양수)와 절대 겹치지 않도록 음수만 발급합니다.
@@ -93,7 +95,10 @@ function normalizeMessages(messages: ChatMessage[], memberId: number | null): Ch
       const bt = new Date(b.sentAt).getTime() || 0;
       if (at !== bt) return at - bt;
       return a.messageId - b.messageId;
-    });
+    })
+    // 정렬한 "다음에" 잘라야 최근 메시지가 남습니다.
+    // (서버 정렬 순서를 믿고 자르면 오래된 쪽만 남을 수 있음)
+    .slice(-CHAT_MESSAGE_DISPLAY_LIMIT);
 }
 
 /**
@@ -114,7 +119,7 @@ export function useChatMessagesQuery(
 
   return useQuery({
     queryKey: chatKeys.messages(roomId ?? 0),
-    queryFn: () => getMessages(roomId as number, CHAT_MESSAGE_PAGE_SIZE),
+    queryFn: () => getMessages(roomId as number),
     enabled: roomId != null && memberId != null,
     select,
     refetchInterval: isActive ? CHAT_POLL_INTERVAL_MS : false,

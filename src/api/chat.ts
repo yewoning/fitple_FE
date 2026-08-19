@@ -119,15 +119,21 @@ function mapChatMessage(raw: ChatMessageResponse & Record<string, any>): ChatMes
   };
 }
 
-// ✅ 실제 연동: GET /api/chat/rooms/{roomId}/messages?size=
-// 응답이 배열이라 예전의 { messages, nextCursor, hasNext } 커서 페이징 형태가 아닙니다.
-// (서버에 커서 파라미터가 없어서 "최근 size개"만 받아옵니다 — 전체 이력 페이징은 아직 불가)
-export async function getMessages(roomId: number, size = 30): Promise<ChatMessage[]> {
+// ✅ 실제 연동: GET /api/chat/rooms/{roomId}/messages (응답은 배열)
+//
+// ⚠️ size 파라미터를 절대 보내지 마세요. 서버 버그로, size를 보내면 값과 상관없이
+// "가장 최근 1건"만 돌아옵니다. 실서버로 확인한 결과:
+//   ?size=1 / 5 / 30 / 100  → 전부 1건
+//   ?size=0                 → "size는 1 이상이어야 합니다" (파싱은 되는데 조회가 깨짐)
+//   ?foo=1 (size 아닌 값)   → 전체 반환
+//   파라미터 없음            → 전체 반환
+// 이것 때문에 메시지를 여러 번 보내도 마지막 1건만 보이는 문제가 있었습니다.
+// 백엔드가 size를 고치면 params를 되살리고 아래 표시 상한도 서버로 옮기면 됩니다.
+// (같은 이유로 /messages/previous 도 지금은 1건만 줘서 과거 이력 페이징은 불가)
+export async function getMessages(roomId: number): Promise<ChatMessage[]> {
   return withDemoFallback(
     async () => {
-      const { data } = await apiClient.get(`/api/chat/rooms/${roomId}/messages`, {
-        params: { size },
-      });
+      const { data } = await apiClient.get(`/api/chat/rooms/${roomId}/messages`);
       const list: any[] = Array.isArray(data) ? data : (data?.messages ?? []);
       return list.map(mapChatMessage);
     },
