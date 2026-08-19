@@ -296,17 +296,27 @@ export function ProjectDetailScreen({ projectId }: ProjectDetailScreenProps) {
               </Pressable>
 
               <View className="flex-1">
-                <PrimaryButton
-                  label="지원하기"
-                  disabled={isOwner}
-                  onPress={() =>
-                    router.push(
-                      `/project-apply?id=${project.projectId}&title=${encodeURIComponent(
-                        project.title
-                      )}` as Href
-                    )
-                  }
-                />
+                {/* 게시자는 자기 프로젝트에 지원할 수 없으므로, 그 자리를 지원자 관리 진입점으로 쓴다. */}
+                {isOwner ? (
+                  <PrimaryButton
+                    label="지원자 관리"
+                    variant="accent"
+                    onPress={() =>
+                      router.push(`/project-applicants?id=${project.projectId}` as Href)
+                    }
+                  />
+                ) : (
+                  <PrimaryButton
+                    label="지원하기"
+                    onPress={() =>
+                      router.push(
+                        `/project-apply?id=${project.projectId}&title=${encodeURIComponent(
+                          project.title
+                        )}` as Href
+                      )
+                    }
+                  />
+                )}
               </View>
             </View>
           </View>

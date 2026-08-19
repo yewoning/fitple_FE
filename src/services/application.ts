@@ -1,10 +1,11 @@
 import { requestRaw } from '@/services/api-client';
-import { demoStore } from '@/mocks/demo-store';
+import { demoStore, getDemoProjectApplications } from '@/mocks/demo-store';
 import { withDemoFallback } from '@/services/demo-fallback';
 import type {
   ApplicationAiGenerateRequest,
   ApplicationAiGenerateResponse,
   IntroductionListItem,
+  ProjectApplicationItem,
   SubmitApplicationRequest,
   SubmitApplicationResponse,
 } from '@/types/application';
@@ -39,6 +40,51 @@ export function submitApplication(
         },
       ),
     () => demoStore.getState().submitApplication(Number(projectId), memberId, payload),
+  );
+}
+
+/**
+ * 게시자용 지원자 관리 API 3종.
+ * 생성된 api.json에는 memberId 파라미터가 없지만 백엔드 문서에는 명시돼 있고,
+ * 기존 submitApplication도 붙여 보내고 있어 컨벤션을 맞춰 함께 전달한다.
+ */
+export function getProjectApplications(projectId: string | number, memberId: number) {
+  return withDemoFallback(
+    () =>
+      requestRaw<ProjectApplicationItem[]>(
+        `/api/projects/${projectId}/applications?memberId=${memberId}`,
+      ),
+    () => getDemoProjectApplications(Number(projectId)),
+  );
+}
+
+export function acceptApplication(
+  projectId: string | number,
+  applicationId: number,
+  memberId: number,
+) {
+  return withDemoFallback(
+    () =>
+      requestRaw<undefined>(
+        `/api/projects/${projectId}/applications/${applicationId}/accept?memberId=${memberId}`,
+        { method: 'POST' },
+      ),
+    () => demoStore.getState().acceptApplication(Number(projectId), applicationId),
+  );
+}
+
+export function rejectApplication(
+  projectId: string | number,
+  applicationId: number,
+  memberId: number,
+) {
+  return withDemoFallback(
+    () =>
+      requestRaw<undefined>(
+        `/api/projects/${projectId}/applications/${applicationId}/reject?memberId=${memberId}`,
+        { method: 'POST' },
+      ),
+    () => demoStore.getState().rejectApplication(Number(projectId), applicationId),
   );
 }
 
