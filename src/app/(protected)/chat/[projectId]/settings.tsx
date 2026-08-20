@@ -5,7 +5,8 @@ import { Alert, ScrollView, Text, TouchableOpacity, View } from 'react-native';
 
 import { CommonLayout } from '@/components/layout';
 import { PrimaryButton } from '@/components/ui/button';
-import { useChatProjectSummary } from '@/hooks/useChat';
+import { useChatProjectSummary, useTeamMembersQuery } from '@/hooks/useChat';
+import type { TeamMember } from '@/types';
 
 const MENU = [
   { key: 'members', icon: 'person-outline', title: '팀원 목록', desc: '팀원 정보 및 역할 확인' },
@@ -20,8 +21,12 @@ export default function ChatRoomSettingsScreen() {
   const { projectId: projectIdParam } = useLocalSearchParams<{ projectId: string }>();
   const projectId = Number(projectIdParam);
   const router = useRouter();
-  // 방 조회 API({ roomId, projectId })엔 이름/아이콘/인원수가 없어서 채팅 목록에서 가져옵니다.
+  // 방 조회 API({ roomId, projectId })엔 이름/아이콘이 없어서 채팅 목록에서 가져옵니다.
   const room = useChatProjectSummary(projectId);
+  // ⚠️ 인원수는 채팅 목록(ProjectResponse)에 없는 값이라 memberCount는 항상 0이었습니다.
+  // 팀원 목록 화면(members.tsx)과 같은 소스인 GET /api/chat/rooms/{projectId}/members로 셉니다.
+  const { data: memberData } = useTeamMembersQuery(projectId);
+  const members: TeamMember[] = memberData?.members ?? [];
 
   const handlePress = (key: (typeof MENU)[number]['key']) => {
     if (key === 'members') router.push({ pathname: '/chat/[projectId]/members', params: { projectId: projectIdParam } });
@@ -53,7 +58,7 @@ export default function ChatRoomSettingsScreen() {
               {room?.projectName ?? ''}
             </Text>
             <View className="mt-0.5 flex-row items-center gap-1">
-              <Text className="font-sans text-[13px] text-sky-blue">팀원 {room?.memberCount ?? 0}명</Text>
+              <Text className="font-sans text-[13px] text-sky-blue">팀원 {members.length}명</Text>
               <Ionicons name="add-circle-outline" size={16} color="#4876ee" />
             </View>
           </View>

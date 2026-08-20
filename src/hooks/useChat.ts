@@ -276,6 +276,7 @@ export function useTeamMembersQuery(projectId: number) {
   return useQuery({
     queryKey: chatKeys.members(projectId),
     queryFn: () => getTeamMembers(projectId),
+    enabled: Number.isFinite(projectId),
   });
 }
 
